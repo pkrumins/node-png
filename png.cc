@@ -2,7 +2,7 @@
 #include <node_events.h>
 #include <node_buffer.h>
 #include <png.h>
-#include <stdlib.h>
+#include <cstdlib>
 
 using namespace v8;
 using namespace node;
@@ -47,11 +47,11 @@ public:
     void Encode() {
         png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
         if (!png_ptr)
-            ThrowException(Exception::Error(String::New("png_create_write_struct failed")));
+            ThrowException(Exception::Error(String::New("png_create_write_struct failed.")));
 
         png_infop info_ptr = png_create_info_struct(png_ptr);
         if (!png_ptr)
-            ThrowException(Exception::Error(String::New("png_create_info_struct failed")));
+            ThrowException(Exception::Error(String::New("png_create_info_struct failed.")));
 
         png_set_IHDR(png_ptr, info_ptr, width_, height_,
                  8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
@@ -64,7 +64,7 @@ public:
 
         png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height_);
         if (!row_pointers)
-            ThrowException(Exception::Error(String::New("malloc failed")));
+            ThrowException(Exception::Error(String::New("malloc failed.")));
 
         int i;
         unsigned char *rgba_data = (unsigned char *)rgba_->data();
@@ -83,6 +83,16 @@ protected:
     New(const Arguments& args)
     {
         HandleScope scope;
+
+        if (args.Length() != 3)
+            ThrowException(Exception::Error(String::New("Three arguments required - rgba buffer, width, height.")));
+        if (!Buffer::HasInstance(args[0]))
+            ThrowException(Exception::Error(String::New("First argument must be Buffer.")));
+        if (!args[1]->IsInt32())
+            ThrowException(Exception::Error(String::New("Second argument must be integer width.")));
+        if (!args[2]->IsInt32())
+            ThrowException(Exception::Error(String::New("Third argument must be integer height.")));
+
         Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
         Png *png = new Png(rgba, args[1]->Int32Value(), args[2]->Int32Value());
         png->Wrap(args.This());
