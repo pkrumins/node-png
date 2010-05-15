@@ -7,6 +7,9 @@
 using namespace v8;
 using namespace node;
 
+static Persistent<String> end_symbol;
+static Persistent<String> data_symbol;
+
 class Png : public EventEmitter {
 private:
     int width_;
@@ -18,14 +21,12 @@ public:
     Initialize(v8::Handle<v8::Object> target)
     {
         HandleScope scope;
-
         Local<FunctionTemplate> t = FunctionTemplate::New(New);
-
         t->Inherit(EventEmitter::constructor_template);
         t->InstanceTemplate()->SetInternalFieldCount(1);
-
+        end_symbol = NODE_PSYMBOL("end");
+        data_symbol = NODE_PSYMBOL("data");
         NODE_SET_PROTOTYPE_METHOD(t, "encode", Encode);
-
         target->Set(String::NewSymbol("Png"), t->GetFunction());
     }
 
@@ -35,11 +36,11 @@ public:
     static void
     chunk_emitter(png_structp png_ptr, png_bytep data, png_size_t length)
     {
-        Buffer buf(length);
-        memcpy(buf.data(), data, length); 
-
         Png *p = (Png *)png_get_io_ptr(png_ptr);
-        //p->Emit(String::New("data"), 1, buf);
+        Local<Value> args[2];
+        args[0] = Local<String>(String::New((char *)data, length));
+        args[1] = Local<Integer>(Integer::New(length));
+        p->Emit(data_symbol, 2, args);
     }
 
     void Encode() {
@@ -73,7 +74,7 @@ public:
         png_destroy_write_struct(&png_ptr, &info_ptr);
         free(row_pointers);
 
-        //this->Emit(String::New("end"), 0, NULL);
+        Emit(end_symbol, 0, NULL);
     }
 
 protected:
@@ -95,8 +96,6 @@ protected:
         png->Encode();
         return Undefined();
     }
-
-
 };
 
 extern "C" void

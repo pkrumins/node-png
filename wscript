@@ -12,11 +12,13 @@ def set_options(opt):
 def configure(conf):
   conf.check_tool("compiler_cxx")
   conf.check_tool("node_addon")
+  conf.check(lib='png', libpath=['/usr/local/pkg/libpng-1.4.1/lib'])
 
 def build(bld):
   obj = bld.new_task_gen("cxx", "shlib", "node_addon")
   obj.target = "png"
   obj.source = "png.cc"
+  obj.uselib = "PNG"
 
 def shutdown():
   if Options.commands['clean']:
