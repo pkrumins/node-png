@@ -8,6 +8,11 @@ using namespace v8;
 using namespace node;
 
 class Png : public EventEmitter {
+private:
+    int width_;
+    int height_;
+    Buffer *rgba_;
+
 public:
     static void
     Initialize(v8::Handle<v8::Object> target)
@@ -24,12 +29,6 @@ public:
         target->Set(String::NewSymbol("Png"), t->GetFunction());
     }
 
-private:
-    int width_;
-    int height_;
-    Buffer *rgba_;
-
-public:
     Png(Buffer *rgba, size_t width, size_t height) :
         EventEmitter(), rgba_(rgba), width_(width), height_(height) { }
 
