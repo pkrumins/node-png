@@ -37,9 +37,10 @@ public:
     chunk_emitter(png_structp png_ptr, png_bytep data, png_size_t length)
     {
         Png *p = (Png *)png_get_io_ptr(png_ptr);
-        Local<Value> args[2];
-        args[0] = Local<String>(String::New((char *)data, length));
-        args[1] = Local<Integer>(Integer::New(length));
+        Local<Value> args[2] = {
+            Local<String>(String::New((char *)data, length)),
+            Local<Integer>(Integer::New(length))
+        };
         p->Emit(data_symbol, 2, args);
     }
 
