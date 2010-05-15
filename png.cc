@@ -12,16 +12,16 @@ public:
     static void
     Initialize(v8::Handle<v8::Object> target)
     {
-    HandleScope scope;
+        HandleScope scope;
 
-    Local<FunctionTemplate> t = FunctionTemplate::New(New);
+        Local<FunctionTemplate> t = FunctionTemplate::New(New);
 
-    t->Inherit(EventEmitter::constructor_template);
-    t->InstanceTemplate()->SetInternalFieldCount(1);
+        t->Inherit(EventEmitter::constructor_template);
+        t->InstanceTemplate()->SetInternalFieldCount(1);
 
-    NODE_SET_PROTOTYPE_METHOD(t, "encode", Encode);
+        NODE_SET_PROTOTYPE_METHOD(t, "encode", Encode);
 
-    target->Set(String::NewSymbol("Png"), t->GetFunction());
+        target->Set(String::NewSymbol("Png"), t->GetFunction());
     }
 
 private:
