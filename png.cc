@@ -1,6 +1,5 @@
 #include <node.h>
 #include <node_events.h>
-#include <node_buffer.h>
 #include <png.h>
 #include <cstdlib>
 
@@ -26,7 +25,7 @@ public:
         t->InstanceTemplate()->SetInternalFieldCount(1);
         end_symbol = NODE_PSYMBOL("end");
         data_symbol = NODE_PSYMBOL("data");
-        NODE_SET_PROTOTYPE_METHOD(t, "encode", Encode);
+        NODE_SET_PROTOTYPE_METHOD(t, "encode", PngEncode);
         target->Set(String::NewSymbol("Png"), t->GetFunction());
     }
 
@@ -38,13 +37,13 @@ public:
     {
         Png *p = (Png *)png_get_io_ptr(png_ptr);
         Local<Value> args[2] = {
-            Local<String>(String::New((char *)data, length)),
-            Local<Integer>(Integer::New(length))
+            Encode((char *)data, length, BINARY),
+            Integer::New(length)
         };
         p->Emit(data_symbol, 2, args);
     }
 
-    void Encode() {
+    void PngEncode() {
         png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
         if (!png_ptr)
             ThrowException(Exception::Error(String::New("png_create_write_struct failed.")));
@@ -70,6 +69,7 @@ public:
         unsigned char *rgba_data = (unsigned char *)rgba_->data();
         for (i=0; i<height_; i++)
             row_pointers[i] = rgba_data+4*i*width_;
+
         png_write_image(png_ptr, row_pointers);
         png_write_end(png_ptr, NULL);
         png_destroy_write_struct(&png_ptr, &info_ptr);
@@ -100,11 +100,11 @@ protected:
     }
 
     static Handle<Value>
-    Encode(const Arguments& args)
+    PngEncode(const Arguments& args)
     {
         HandleScope scope;
         Png *png = ObjectWrap::Unwrap<Png>(args.This());
-        png->Encode();
+        png->PngEncode();
         return Undefined();
     }
 };
