@@ -12,7 +12,7 @@ def set_options(opt):
 def configure(conf):
   conf.check_tool("compiler_cxx")
   conf.check_tool("node_addon")
-  conf.check(lib='png', libpath=['/usr/local/pkg/libpng-1.4.1/lib'])
+  conf.check(lib='png', libpath=['/lib', '/usr/lib', '/usr/local/lib', '/usr/local/libpng/lib', '/usr/local/pkg/libpng-1.4.1/lib'])
 
 def build(bld):
   obj = bld.new_task_gen("cxx", "shlib", "node_addon")
