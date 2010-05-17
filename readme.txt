@@ -18,13 +18,13 @@ The constructed `png` object then has an `encode` method that when called,
 starts emitting `data` events with `chunk` and `length` paramters. When it's
 done encoding, it emits `end` event.
 
-See `tests/` directory for examples.
+See `examples/` directory for examples.
 
 To get it compiled, you need to have libpng and node installed. Then just run
 
     node-waf configure build
 
-to build Png module.
+to build Png module. It will build `png.node` module.
 
 
 ------------------------------------------------------------------------------
