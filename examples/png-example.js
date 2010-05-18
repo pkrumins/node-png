@@ -8,17 +8,7 @@ var rgba = new Buffer(1152000);
 rgba.write(fs.readFileSync('./rgba-terminal.dat', 'binary'), 'binary');
 
 var png = new Png(rgba, 720, 400);
+var png_image = png.encode();
 
-var fd = fs.openSync('./png.png', 'w+', 0660);
-var total = 0, written = 0;
-png.addListener('data', function(chunk, length) {
-    sys.log('Got a chunk. Size: ' + length);
-    written += fs.writeSync(fd, chunk, written, 'binary');
-    total += length;
-});
-png.addListener('end', function() {
-    fs.closeSync(fd);
-    sys.log('Total: ' + total + ' bytes. Written: ' + written + ' bytes.');
-});
-png.encode();
+fs.writeFileSync('./png.png', png_image, 'binary');
 

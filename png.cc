@@ -1,5 +1,4 @@
 #include <node.h>
-#include <node_events.h>
 #include <node_buffer.h>
 #include <png.h>
 #include <cstdlib>
@@ -7,44 +6,48 @@
 using namespace v8;
 using namespace node;
 
-static Persistent<String> end_symbol;
-static Persistent<String> data_symbol;
-
-class Png : public EventEmitter {
+class Png : public ObjectWrap {
 private:
     int width_;
     int height_;
     Buffer *rgba_;
+    char *png;
+    int png_len;
 
 public:
     static void
-    Initialize(v8::Handle<v8::Object> target)
+    Initialize(Handle<Object> target)
     {
         HandleScope scope;
         Local<FunctionTemplate> t = FunctionTemplate::New(New);
-        t->Inherit(EventEmitter::constructor_template);
         t->InstanceTemplate()->SetInternalFieldCount(1);
-        end_symbol = NODE_PSYMBOL("end");
-        data_symbol = NODE_PSYMBOL("data");
         NODE_SET_PROTOTYPE_METHOD(t, "encode", PngEncode);
         target->Set(String::NewSymbol("Png"), t->GetFunction());
     }
 
     Png(Buffer *rgba, size_t width, size_t height) :
-        EventEmitter(), rgba_(rgba), width_(width), height_(height) { }
+        rgba_(rgba), width_(width), height_(height),
+        png(NULL), png_len(0) { }
+
+    ~Png() { free(png); }
 
     static void
     chunk_emitter(png_structp png_ptr, png_bytep data, png_size_t length)
     {
         Png *p = (Png *)png_get_io_ptr(png_ptr);
-        Local<Value> args[2] = {
-            Encode((char *)data, length, BINARY),
-            Integer::New(length)
-        };
-        p->Emit(data_symbol, 2, args);
+        p->png_len += length;
+        char *new_png = (char *)realloc(p->png, sizeof(char)*p->png_len);
+        if (!new_png) {
+            free(p->png);
+            ThrowException(Exception::Error(String::New("realloc failed.")));
+        }
+        p->png = new_png;
+        memcpy(p->png+p->png_len-length, data, length);
     }
 
-    void PngEncode() {
+    Handle<Value> PngEncode() {
+        HandleScope scope;
+
         png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
         if (!png_ptr)
             ThrowException(Exception::Error(String::New("png_create_write_struct failed.")));
@@ -75,7 +78,14 @@ public:
         png_destroy_write_struct(&png_ptr, &info_ptr);
         free(row_pointers);
 
-        Emit(end_symbol, 0, NULL);
+        /*
+        Local<Value> args[2] = {
+            Encode((char *)png, png_len, BINARY),
+            Integer::New(png_len)
+        };
+        */
+
+        return scope.Close(Encode((char *)png, png_len, BINARY));
     }
 
 protected:
@@ -104,8 +114,7 @@ protected:
     {
         HandleScope scope;
         Png *png = ObjectWrap::Unwrap<Png>(args.This());
-        png->PngEncode();
-        return Undefined();
+        return png->PngEncode();
     }
 };
 

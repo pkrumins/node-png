@@ -18,13 +18,5 @@ for (var i=0; i<HEIGHT; i++) {
 
 var png = new Png(rgba, WIDTH, HEIGHT);
 
-var fd = fs.openSync('./png-gradient.png', 'w+', 0660);
-var written = 0;
-png.addListener('data', function(chunk, length) {
-    written += fs.writeSync(fd, chunk, written, 'binary');
-});
-png.addListener('end', function() {
-    fs.closeSync(fd);
-});
-png.encode();
+fs.writeFileSync('./png-gradient.png', png.encode(), 'binary');
 

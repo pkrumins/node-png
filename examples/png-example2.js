@@ -16,17 +16,7 @@ var rgba = new Buffer(100);
 rgba.write(img, 'binary');
 
 var png = new Png(rgba, 5, 5);
+var png_image = png.encode();
 
-var fd = fs.openSync('./png-5x5.png', 'w+', 0660);
-var total = 0, written = 0;
-png.addListener('data', function(chunk, length) {
-    sys.log('Got a chunk. Size: ' + length);
-    written += fs.writeSync(fd, chunk, written, 'binary');
-    total += length;
-});
-png.addListener('end', function() {
-    fs.closeSync(fd);
-    sys.log('Total: ' + total + ' bytes. Written: ' + written + ' bytes.');
-});
-png.encode();
+fs.writeFileSync('./png-5x5.png', png_image, 'binary');
 
