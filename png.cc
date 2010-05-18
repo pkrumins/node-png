@@ -78,13 +78,6 @@ public:
         png_destroy_write_struct(&png_ptr, &info_ptr);
         free(row_pointers);
 
-        /*
-        Local<Value> args[2] = {
-            Encode((char *)png, png_len, BINARY),
-            Integer::New(png_len)
-        };
-        */
-
         return scope.Close(Encode((char *)png, png_len, BINARY));
     }
 
