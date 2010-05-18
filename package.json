@@ -33,7 +33,7 @@
        "libpng": "1.4"
    },
    "directories": {
-       "tests": "tests"
+       "examples": "examples"
    },
    "engines": {
        "node": ">=0.1.93"

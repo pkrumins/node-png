@@ -66,9 +66,8 @@ public:
         if (!row_pointers)
             ThrowException(Exception::Error(String::New("malloc failed.")));
 
-        int i;
         unsigned char *rgba_data = (unsigned char *)rgba_->data();
-        for (i=0; i<height_; i++)
+        for (int i=0; i<height_; i++)
             row_pointers[i] = rgba_data+4*i*width_;
 
         png_write_image(png_ptr, row_pointers);
