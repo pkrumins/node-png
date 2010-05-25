@@ -154,10 +154,11 @@ public:
     PngStack(int width, int height) : ObjectWrap(),
         width_(width), height_(height)
     { 
-        rgba = (unsigned char *)calloc(width * height * 4, sizeof(unsigned char));
+        rgba = (unsigned char *)malloc(sizeof(unsigned char) * width * height * 4);
         if (!rgba) {
             ThrowException(Exception::Error(String::New("malloc failed in node-png (PngStack ctor)")));
         }
+        memset(rgba, 0xFF, width*height*4);
     }
 
     ~PngStack() { free(rgba); }
