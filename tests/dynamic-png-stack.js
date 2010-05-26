@@ -25,3 +25,8 @@ files.forEach(function(file) {
 
 fs.writeFileSync('dynamic.png', pngStack.encode(), 'binary');
 
+var dims = pngStack.dimensions();
+
+sys.log("PNG located at (" + dims.x + "," + dims.y + ") with width " +
+    dims.width + " and height " + dims.height);
+
