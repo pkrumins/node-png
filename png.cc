@@ -215,8 +215,6 @@ protected:
     {
         HandleScope scope;
 
-        FixedPngStack *png_stack = ObjectWrap::Unwrap<FixedPngStack>(args.This());
-
         if (!Buffer::HasInstance(args[0]))
             ThrowException(Exception::Error(String::New("First argument must be Buffer.")));
         if (!args[1]->IsInt32())
@@ -228,6 +226,7 @@ protected:
         if (!args[4]->IsInt32())
             ThrowException(Exception::Error(String::New("Fifth argument must be integer h.")));
 
+        FixedPngStack *png_stack = ObjectWrap::Unwrap<FixedPngStack>(args.This());
         Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
         int x = args[1]->Int32Value();
         int y = args[2]->Int32Value();
@@ -417,8 +416,6 @@ protected:
     {
         HandleScope scope;
 
-        DynamicPngStack *png_stack = ObjectWrap::Unwrap<DynamicPngStack>(args.This());
-
         if (!Buffer::HasInstance(args[0]))
             ThrowException(Exception::Error(String::New("First argument must be Buffer.")));
         if (!args[1]->IsInt32())
@@ -445,6 +442,7 @@ protected:
         if (h < 0)
             ThrowException(Exception::Error(String::New("Height smaller than 0.")));
 
+        DynamicPngStack *png_stack = ObjectWrap::Unwrap<DynamicPngStack>(args.This());
         png_stack->Push(rgba, x, y, w, h);
 
         return Undefined();
