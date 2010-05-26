@@ -292,12 +292,15 @@ private:
 
     struct Point {
         int x, y;
+        Point() {}
         Point(int xx, int yy) : x(xx), y(yy) {}
     };
     
     typedef std::vector<Png *> vPng;
     typedef vPng::iterator vPngi;
     vPng png_stack;
+    Point offset;
+    int width, height;
 
     std::vector<Point> OptimalDimension() {
         Point top(-1, -1), bottom(-1, -1);
@@ -333,6 +336,7 @@ public:
         t->InstanceTemplate()->SetInternalFieldCount(1);
         NODE_SET_PROTOTYPE_METHOD(t, "push", Push);
         NODE_SET_PROTOTYPE_METHOD(t, "encode", PngEncode);
+        NODE_SET_PROTOTYPE_METHOD(t, "dimensions", Dimensions);
         target->Set(String::NewSymbol("DynamicPngStack"), t->GetFunction());
     }
 
@@ -356,9 +360,10 @@ public:
         Point top = optimal[0], bot = optimal[1];
 
         // printf("width, height: %d, %d\n", bot.x - top.x, bot.y - top.y);
-        
-        int width = bot.x - top.x;
-        int height = bot.y - top.y;
+
+        offset = top;
+        width = bot.x - top.x;
+        height = bot.y - top.y;
 
         unsigned char *rgba = (unsigned char*)malloc(sizeof(unsigned char) * width * height * 4);
         if (!rgba) {
@@ -383,6 +388,17 @@ public:
         PngEncoder p(rgba, width, height);
         p.encode();
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
+    }
+
+    Handle<Value> Dimensions() {
+        HandleScope scope;
+
+        Local<Object> dim = Array::New(2);
+        dim->Set(String::NewSymbol("x"), Integer::New(offset.x));
+        dim->Set(String::NewSymbol("y"), Integer::New(offset.y));
+        dim->Set(String::NewSymbol("width"), Integer::New(width));
+        dim->Set(String::NewSymbol("height"), Integer::New(height));
+        return dim;
     }
 
 protected:
@@ -435,7 +451,16 @@ protected:
     }
 
     static Handle<Value>
-    PngEncode(const Arguments& args)
+    Dimensions(const Arguments &args)
+    {
+        HandleScope scope;
+
+        DynamicPngStack *png_stack = ObjectWrap::Unwrap<DynamicPngStack>(args.This());
+        return png_stack->Dimensions();
+    }
+
+    static Handle<Value>
+    PngEncode(const Arguments &args)
     {
         HandleScope scope;
 
@@ -443,7 +468,6 @@ protected:
         return png_stack->PngEncode();
     }
 };
-
 
 extern "C" void
 init(Handle<Object> target)
