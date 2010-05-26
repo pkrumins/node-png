@@ -23,5 +23,5 @@ files.forEach(function(file) {
     pngStack.push(buf, dim.x, dim.y, dim.w, dim.h);
 });
 
-fs.writeFileSync('merged.png', pngStack.encode(), 'binary');
+fs.writeFileSync('fixed.png', pngStack.encode(), 'binary');
 
