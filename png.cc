@@ -393,7 +393,7 @@ public:
     Handle<Value> Dimensions() {
         HandleScope scope;
 
-        Local<Object> dim = Array::New(2);
+        Local<Object> dim = Object::New();
         dim->Set(String::NewSymbol("x"), Integer::New(offset.x));
         dim->Set(String::NewSymbol("y"), Integer::New(offset.y));
         dim->Set(String::NewSymbol("width"), Integer::New(width));
