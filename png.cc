@@ -29,8 +29,8 @@ public:
         memcpy(p->png+p->png_len-length, data, length);
     }
 
-    PngEncoder(int width, int height, unsigned char *rgba) :
-        width_(width), height_(height), rgba_data(rgba),
+    PngEncoder(unsigned char *rgba, int width, int height) :
+        rgba_data(rgba), width_(width), height_(height),
         png(NULL), png_len(0) {}
 
     ~PngEncoder() {
@@ -57,7 +57,7 @@ public:
 
         png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height_);
         if (!row_pointers)
-            ThrowException(Exception::Error(String::New("malloc failed.")));
+            ThrowException(Exception::Error(String::New("malloc failed in node-png (PngEncoder::encode).")));
 
         for (int i=0; i<height_; i++)
             row_pointers[i] = rgba_data+4*i*width_;
@@ -99,7 +99,7 @@ public:
 
     Handle<Value> PngEncode() {
         HandleScope scope;
-        PngEncoder p(width_, height_, (unsigned char *)rgba_->data());
+        PngEncoder p((unsigned char *)rgba_->data(), width_, height_);
         p.encode();
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
@@ -120,7 +120,15 @@ protected:
             ThrowException(Exception::Error(String::New("Third argument must be integer height.")));
 
         Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
-        Png *png = new Png(rgba, args[1]->Int32Value(), args[2]->Int32Value());
+        int w = args[1]->Int32Value();
+        int h = args[2]->Int32Value();
+
+        if (w < 0)
+            ThrowException(Exception::Error(String::New("Width smaller than 0.")));
+        if (h < 0)
+            ThrowException(Exception::Error(String::New("Height smaller than 0.")));
+
+        Png *png = new Png(rgba, w, h);
         png->Wrap(args.This());
         return args.This();
     }
@@ -134,7 +142,7 @@ protected:
     }
 };
 
-class PngStack : public ObjectWrap {
+class FixedPngStack : public ObjectWrap {
 private:
     int width_, height_;
     unsigned char *rgba;
@@ -148,20 +156,20 @@ public:
         t->InstanceTemplate()->SetInternalFieldCount(1);
         NODE_SET_PROTOTYPE_METHOD(t, "push", Push);
         NODE_SET_PROTOTYPE_METHOD(t, "encode", PngEncode);
-        target->Set(String::NewSymbol("PngStack"), t->GetFunction());
+        target->Set(String::NewSymbol("FixedPngStack"), t->GetFunction());
     }
 
-    PngStack(int width, int height) : ObjectWrap(),
+    FixedPngStack(int width, int height) : ObjectWrap(),
         width_(width), height_(height)
     { 
         rgba = (unsigned char *)malloc(sizeof(unsigned char) * width * height * 4);
         if (!rgba) {
-            ThrowException(Exception::Error(String::New("malloc failed in node-png (PngStack ctor)")));
+            ThrowException(Exception::Error(String::New("malloc failed in node-png (FixedPngStack ctor)")));
         }
         memset(rgba, 0xFF, width*height*4);
     }
 
-    ~PngStack() { free(rgba); }
+    ~FixedPngStack() { free(rgba); }
 
     void Push(int x, int y, int w, int h, Buffer *buf) {
         HandleScope scope;
@@ -180,7 +188,7 @@ public:
 
     Handle<Value> PngEncode() {
         HandleScope scope;
-        PngEncoder p(width_, height_, rgba);
+        PngEncoder p(rgba, width_, height_);
         p.encode();
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
@@ -198,7 +206,7 @@ protected:
         if (!args[1]->IsInt32())
             ThrowException(Exception::Error(String::New("Second argument must be integer height.")));
 
-        PngStack *png_stack = new PngStack(args[0]->Int32Value(), args[1]->Int32Value());
+        FixedPngStack *png_stack = new FixedPngStack(args[0]->Int32Value(), args[1]->Int32Value());
         png_stack->Wrap(args.This());
         return args.This();
     }
@@ -208,24 +216,41 @@ protected:
     {
         HandleScope scope;
 
-        PngStack *png_stack = ObjectWrap::Unwrap<PngStack>(args.This());
+        FixedPngStack *png_stack = ObjectWrap::Unwrap<FixedPngStack>(args.This());
 
-        if (!args[0]->IsInt32())
-            ThrowException(Exception::Error(String::New("First argument must be integer x")));
+        if (!Buffer::HasInstance(args[0]))
+            ThrowException(Exception::Error(String::New("First argument must be Buffer.")));
         if (!args[1]->IsInt32())
-            ThrowException(Exception::Error(String::New("Second argument must be integer y")));
+            ThrowException(Exception::Error(String::New("Second argument must be integer x.")));
         if (!args[2]->IsInt32())
-            ThrowException(Exception::Error(String::New("Third argument must be integer w")));
+            ThrowException(Exception::Error(String::New("Third argument must be integer y.")));
         if (!args[3]->IsInt32())
-            ThrowException(Exception::Error(String::New("Fourth argument must be integer h")));
-        if (!Buffer::HasInstance(args[4]))
-            ThrowException(Exception::Error(String::New("Fifth argument must be Buffer.")));
+            ThrowException(Exception::Error(String::New("Fourth argument must be integer w.")));
+        if (!args[4]->IsInt32())
+            ThrowException(Exception::Error(String::New("Fifth argument must be integer h.")));
 
-        int x = args[0]->Int32Value();
-        int y = args[1]->Int32Value();
-        int w = args[2]->Int32Value();
-        int h = args[3]->Int32Value();
-        Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[4]->ToObject());
+        Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
+        int x = args[1]->Int32Value();
+        int y = args[2]->Int32Value();
+        int w = args[3]->Int32Value();
+        int h = args[4]->Int32Value();
+
+        if (x < 0)
+            ThrowException(Exception::Error(String::New("Coordinate x smaller than 0.")));
+        if (y < 0)
+            ThrowException(Exception::Error(String::New("Coordinate y smaller than 0.")));
+        if (w < 0)
+            ThrowException(Exception::Error(String::New("Width smaller than 0.")));
+        if (h < 0)
+            ThrowException(Exception::Error(String::New("Height smaller than 0.")));
+        if (x >= png_stack->width_) 
+            ThrowException(Exception::Error(String::New("Coordinate x exceeds FixedPngStack's dimensions.")));
+        if (y >= png_stack->height_) 
+            ThrowException(Exception::Error(String::New("Coordinate y exceeds FixedPngStack's dimensions.")));
+        if (x+w > png_stack->width_) 
+            ThrowException(Exception::Error(String::New("Pushed PNG exceeds FixedPngStack's width.")));
+        if (y+h > png_stack->height_) 
+            ThrowException(Exception::Error(String::New("Pushed PNG exceeds FixedPngStack's height.")));
 
         png_stack->Push(x, y, w, h, rgba);
 
@@ -237,7 +262,7 @@ protected:
     {
         HandleScope scope;
 
-        PngStack *png_stack = ObjectWrap::Unwrap<PngStack>(args.This());
+        FixedPngStack *png_stack = ObjectWrap::Unwrap<FixedPngStack>(args.This());
         return png_stack->PngEncode();
     }
 };
@@ -247,6 +272,7 @@ init(Handle<Object> target)
 {
     HandleScope scope;
     Png::Initialize(target);
-    PngStack::Initialize(target);
+    FixedPngStack::Initialize(target);
+    //DynamicPngStack::Initialize(target);
 }
 

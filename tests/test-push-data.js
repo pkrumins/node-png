@@ -3,7 +3,7 @@ var fs = require('fs');
 var sys = require('sys');
 var Buffer = require('buffer').Buffer;
 
-var pngStack = new PngLib.PngStack(720, 400);
+var pngStack = new PngLib.FixedPngStack(720, 400);
 
 function rectDim(fileName) {
     var m = fileName.match(/^\d+-rgba-(\d+)-(\d+)-(\d+)-(\d+).dat$/);
@@ -20,7 +20,7 @@ files.forEach(function(file) {
     var rgba = fs.readFileSync('./push-data/' + file, 'binary');
     var buf = new Buffer(rgba.length);
     buf.write(rgba, 'binary');
-    pngStack.push(dim.x, dim.y, dim.w, dim.h, buf);
+    pngStack.push(buf, dim.x, dim.y, dim.w, dim.h);
 });
 
 fs.writeFileSync('merged.png', pngStack.encode(), 'binary');
