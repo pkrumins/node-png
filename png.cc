@@ -285,7 +285,6 @@ private:
         }
 
         ~Png() {
-            printf("~Png\n");
             free(rgba);
         }
     };
@@ -387,6 +386,7 @@ public:
 
         PngEncoder p(rgba, width, height);
         p.encode();
+        free(rgba);
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
 
