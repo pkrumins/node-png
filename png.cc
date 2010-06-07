@@ -3,13 +3,14 @@
 #include <png.h>
 #include <cstdlib>
 #include <vector>
+#include <utility>
 
 using namespace v8;
 using namespace node;
 
 class PngEncoder {
 private:
-    int width_, height_;
+    int width, height;
     unsigned char *rgba_data;
     char *png;
     int png_len;
@@ -30,8 +31,8 @@ public:
         memcpy(p->png+p->png_len-length, data, length);
     }
 
-    PngEncoder(unsigned char *rgba, int width, int height) :
-        rgba_data(rgba), width_(width), height_(height),
+    PngEncoder(unsigned char *rgba, int wwidth, int hheight) :
+        rgba_data(rgba), width(wwidth), height(hheight),
         png(NULL), png_len(0) {}
 
     ~PngEncoder() {
@@ -47,7 +48,7 @@ public:
         if (!png_ptr)
             ThrowException(Exception::Error(String::New("png_create_info_struct failed.")));
 
-        png_set_IHDR(png_ptr, info_ptr, width_, height_,
+        png_set_IHDR(png_ptr, info_ptr, width, height,
                  8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
                  PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
@@ -56,12 +57,12 @@ public:
         png_write_info(png_ptr, info_ptr);
         png_set_invert_alpha(png_ptr);
 
-        png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height_);
+        png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height);
         if (!row_pointers)
             ThrowException(Exception::Error(String::New("malloc failed in node-png (PngEncoder::encode).")));
 
-        for (int i=0; i<height_; i++)
-            row_pointers[i] = rgba_data+4*i*width_;
+        for (int i=0; i<height; i++)
+            row_pointers[i] = rgba_data+4*i*width;
 
         png_write_image(png_ptr, row_pointers);
         png_write_end(png_ptr, NULL);
@@ -80,8 +81,8 @@ public:
 
 class Png : public ObjectWrap {
 private:
-    int width_;
-    int height_;
+    int width;
+    int height;
     Buffer *rgba_;
 
 public:
@@ -95,12 +96,12 @@ public:
         target->Set(String::NewSymbol("Png"), t->GetFunction());
     }
 
-    Png(Buffer *rgba, int width, int height) : ObjectWrap(),
-        rgba_(rgba), width_(width), height_(height) {}
+    Png(Buffer *rgba, int wwidth, int hheight) : ObjectWrap(),
+        rgba_(rgba), width(wwidth), height(hheight) {}
 
     Handle<Value> PngEncode() {
         HandleScope scope;
-        PngEncoder p((unsigned char *)rgba_->data(), width_, height_);
+        PngEncoder p((unsigned char *)rgba_->data(), width, height);
         p.encode();
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
@@ -145,7 +146,7 @@ protected:
 
 class FixedPngStack : public ObjectWrap {
 private:
-    int width_, height_;
+    int width, height;
     unsigned char *rgba;
 
 public:
@@ -160,8 +161,8 @@ public:
         target->Set(String::NewSymbol("FixedPngStack"), t->GetFunction());
     }
 
-    FixedPngStack(int width, int height) : ObjectWrap(),
-        width_(width), height_(height)
+    FixedPngStack(int wwidth, int hheight) : ObjectWrap(),
+        width(wwidth), height(hheight)
     { 
         rgba = (unsigned char *)malloc(sizeof(unsigned char) * width * height * 4);
         if (!rgba) {
@@ -174,20 +175,20 @@ public:
 
     void Push(Buffer *buf, int x, int y, int w, int h) {
         unsigned char *data = (unsigned char *)buf->data();
-        int start = y*width_*4 + x*4;
+        int start = y*width*4 + x*4;
         for (int i = 0; i < h; i++) {
             for (int j = 0; j < 4*w; j+=4) {
-                rgba[start + i*width_*4 + j] = data[i*w*4 + j];
-                rgba[start + i*width_*4 + j + 1] = data[i*w*4 + j + 1];
-                rgba[start + i*width_*4 + j + 2] = data[i*w*4 + j + 2];
-                rgba[start + i*width_*4 + j + 3] = data[i*w*4 + j + 3];
+                rgba[start + i*width*4 + j] = data[i*w*4 + j];
+                rgba[start + i*width*4 + j + 1] = data[i*w*4 + j + 1];
+                rgba[start + i*width*4 + j + 2] = data[i*w*4 + j + 2];
+                rgba[start + i*width*4 + j + 3] = data[i*w*4 + j + 3];
             }
         }
     }
 
     Handle<Value> PngEncode() {
         HandleScope scope;
-        PngEncoder p(rgba, width_, height_);
+        PngEncoder p(rgba, width, height);
         p.encode();
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
@@ -241,13 +242,13 @@ protected:
             ThrowException(Exception::Error(String::New("Width smaller than 0.")));
         if (h < 0)
             ThrowException(Exception::Error(String::New("Height smaller than 0.")));
-        if (x >= png_stack->width_) 
+        if (x >= png_stack->width) 
             ThrowException(Exception::Error(String::New("Coordinate x exceeds FixedPngStack's dimensions.")));
-        if (y >= png_stack->height_) 
+        if (y >= png_stack->height) 
             ThrowException(Exception::Error(String::New("Coordinate y exceeds FixedPngStack's dimensions.")));
-        if (x+w > png_stack->width_) 
+        if (x+w > png_stack->width) 
             ThrowException(Exception::Error(String::New("Pushed PNG exceeds FixedPngStack's width.")));
-        if (y+h > png_stack->height_) 
+        if (y+h > png_stack->height) 
             ThrowException(Exception::Error(String::New("Pushed PNG exceeds FixedPngStack's height.")));
 
         png_stack->Push(rgba, x, y, w, h);
@@ -300,7 +301,7 @@ private:
     Point offset;
     int width, height;
 
-    std::vector<Point> OptimalDimension() {
+    std::pair<Point, Point> OptimalDimension() {
         Point top(-1, -1), bottom(-1, -1);
         for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
             Png *png = *it;
@@ -319,10 +320,7 @@ private:
         printf("bottom x, y: %d, %d\n", bottom.x, bottom.y);
         */
 
-        std::vector<Point> ret;
-        ret.push_back(top);
-        ret.push_back(bottom);
-        return ret;
+        return std::make_pair(top, bottom);
     }
 
 public:
@@ -354,8 +352,8 @@ public:
     Handle<Value> PngEncode() {
         HandleScope scope;
 
-        std::vector<Point> optimal = OptimalDimension();
-        Point top = optimal[0], bot = optimal[1];
+        std::pair<Point, Point> optimal = OptimalDimension();
+        Point top = optimal.first, bot = optimal.second;
 
         // printf("width, height: %d, %d\n", bot.x - top.x, bot.y - top.y);
 
