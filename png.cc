@@ -83,7 +83,7 @@ class Png : public ObjectWrap {
 private:
     int width;
     int height;
-    Buffer *rgba_;
+    Buffer *rgba;
 
 public:
     static void
@@ -96,19 +96,19 @@ public:
         target->Set(String::NewSymbol("Png"), t->GetFunction());
     }
 
-    Png(Buffer *rgba, int wwidth, int hheight) : ObjectWrap(),
-        rgba_(rgba), width(wwidth), height(hheight) {}
+    Png(Buffer *rrgba, int wwidth, int hheight) : ObjectWrap(),
+        rgba(rrgba), width(wwidth), height(hheight) {}
 
     Handle<Value> PngEncode() {
         HandleScope scope;
-        PngEncoder p((unsigned char *)rgba_->data(), width, height);
+        PngEncoder p((unsigned char *)rgba->data(), width, height);
         p.encode();
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
 
 protected:
     static Handle<Value>
-    New(const Arguments& args)
+    New(const Arguments &args)
     {
         HandleScope scope;
 
@@ -136,7 +136,7 @@ protected:
     }
 
     static Handle<Value>
-    PngEncode(const Arguments& args)
+    PngEncode(const Arguments &args)
     {
         HandleScope scope;
         Png *png = ObjectWrap::Unwrap<Png>(args.This());
@@ -195,7 +195,7 @@ public:
 
 protected:
     static Handle<Value>
-    New(const Arguments& args)
+    New(const Arguments &args)
     {
         HandleScope scope;
 
@@ -212,7 +212,7 @@ protected:
     }
 
     static Handle<Value>
-    Push(const Arguments& args)
+    Push(const Arguments &args)
     {
         HandleScope scope;
 
@@ -257,7 +257,7 @@ protected:
     }
 
     static Handle<Value>
-    PngEncode(const Arguments& args)
+    PngEncode(const Arguments &args)
     {
         HandleScope scope;
 
@@ -400,7 +400,7 @@ public:
 
 protected:
     static Handle<Value>
-    New(const Arguments& args)
+    New(const Arguments &args)
     {
         HandleScope scope;
 
@@ -410,7 +410,7 @@ protected:
     }
 
     static Handle<Value>
-    Push(const Arguments& args)
+    Push(const Arguments &args)
     {
         HandleScope scope;
 
