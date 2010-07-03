@@ -395,7 +395,7 @@ public:
         dim->Set(String::NewSymbol("y"), Integer::New(offset.y));
         dim->Set(String::NewSymbol("width"), Integer::New(width));
         dim->Set(String::NewSymbol("height"), Integer::New(height));
-        return dim;
+        return scope.Close(dim);
     }
 
 protected:
