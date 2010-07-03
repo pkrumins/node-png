@@ -16,6 +16,9 @@ space efficient way (so that the canvas border matches the leftmost upper corner
 of some PNG and the rightmost bottom corner of some PNG).
 
 
+Png
+---
+
 The `Png` object takes 3 arguments in its constructor:
 
     var png = new Png(buffer, width, height);
@@ -33,6 +36,9 @@ string:
 You can now either send the png_image to the browser, or write to a file, or
 do something else with it. See `examples/` directory for more examples.
 
+
+FixedPngStack
+-------------
 
 The `FixedPngStack` object takes two arguments in its constructor:
 
@@ -53,6 +59,9 @@ buffers together and return a single PNG.
 
 All the regions that did not get covered will be transparent.
 
+
+DynamicPngStack
+---------------
 
 The `DynamicPngStack` object doesn't take any arguments because its width and
 height is dynamically computed. To create it, do:
@@ -98,6 +107,10 @@ The height `dims.height` is 220 because the 2nd png is located at 210 and
 its height is 20, so it stretches to position 230, but the first png starts
 at 10, so the upper 10 pixels are not necessary and height becomes 230-10= 220.
 
+
+How to compile?
+---------------
+
 To get the node-png module compiled, you need to have libpng and node.js
 installed. Then just run:
 
@@ -111,7 +124,6 @@ See also http://github.com/pkrumins/node-jpeg module that produces JPEG images.
 If you wish to stream PNGs over a websocket or xhr-multipart, you'll have to
 base64 encode it. Use my http://github.com/pkrumins/node-base64 module to do
 that.
-
 
 ------------------------------------------------------------------------------
 
