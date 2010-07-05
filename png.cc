@@ -4,9 +4,16 @@
 #include <cstdlib>
 #include <vector>
 #include <utility>
+#include <string>
 
 using namespace v8;
 using namespace node;
+
+static Handle<Value>
+VException(const char *msg) {
+    HandleScope scope;
+    return ThrowException(Exception::Error(String::New(msg)));
+}
 
 class PngEncoder {
 private:
@@ -15,17 +22,21 @@ private:
     char *png;
     int png_len;
 
+    std::string encoder_error;
+
 public: 
     static void
     png_chunk_producer(png_structp png_ptr, png_bytep data, png_size_t length)
     {
         PngEncoder *p = (PngEncoder *)png_get_io_ptr(png_ptr);
+        if (!p->encoder_error.empty()) return;
+
         p->png_len += length;
         char *new_png = (char *)realloc(p->png, sizeof(char)*p->png_len);
         if (!new_png) {
             free(p->png);
-            ThrowException(Exception::Error(
-                String::New("realloc failed in node-png (PngEncoder::png_chunk_producer).")));
+            p->encoder_error = "realloc failed in node-png (PngEncoder::png_chunk_producer).";
+            return;
         }
         p->png = new_png;
         memcpy(p->png+p->png_len-length, data, length);
@@ -39,14 +50,18 @@ public:
         free(png);
     }
 
-    void encode() {
+    Handle<Value>
+    encode()
+    {
+        HandleScope scope;
+
         png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
         if (!png_ptr)
-            ThrowException(Exception::Error(String::New("png_create_write_struct failed.")));
+            return VException("png_create_write_struct failed.");
 
         png_infop info_ptr = png_create_info_struct(png_ptr);
         if (!png_ptr)
-            ThrowException(Exception::Error(String::New("png_create_info_struct failed.")));
+            return VException("png_create_info_struct failed.");
 
         png_set_IHDR(png_ptr, info_ptr, width, height,
                  8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
@@ -59,7 +74,7 @@ public:
 
         png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height);
         if (!row_pointers)
-            ThrowException(Exception::Error(String::New("malloc failed in node-png (PngEncoder::encode).")));
+            return VException("malloc failed in node-png (PngEncoder::encode).");
 
         for (int i=0; i<height; i++)
             row_pointers[i] = rgba_data+4*i*width;
@@ -68,6 +83,11 @@ public:
         png_write_end(png_ptr, NULL);
         png_destroy_write_struct(&png_ptr, &info_ptr);
         free(row_pointers);
+
+        if (!encoder_error.empty())
+            return VException(encoder_error.c_str());
+
+        return Undefined();
     }
 
     char *get_png() {
@@ -90,19 +110,24 @@ public:
     Initialize(Handle<Object> target)
     {
         HandleScope scope;
+
         Local<FunctionTemplate> t = FunctionTemplate::New(New);
         t->InstanceTemplate()->SetInternalFieldCount(1);
         NODE_SET_PROTOTYPE_METHOD(t, "encode", PngEncode);
         target->Set(String::NewSymbol("Png"), t->GetFunction());
     }
 
-    Png(Buffer *rrgba, int wwidth, int hheight) : ObjectWrap(),
+    Png(Buffer *rrgba, int wwidth, int hheight) :
         rgba(rrgba), width(wwidth), height(hheight) {}
 
-    Handle<Value> PngEncode() {
+    Handle<Value>
+    PngEncode()
+    {
         HandleScope scope;
+
         PngEncoder p((unsigned char *)rgba->data(), width, height);
-        p.encode();
+        Handle<Value> ret = p.encode();
+        if (!ret->IsUndefined()) return ret;
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
 
@@ -113,22 +138,22 @@ protected:
         HandleScope scope;
 
         if (args.Length() != 3)
-            ThrowException(Exception::Error(String::New("Three arguments required - rgba buffer, width, height.")));
+            return VException("Three arguments required - rgba buffer, width, height.");
         if (!Buffer::HasInstance(args[0]))
-            ThrowException(Exception::Error(String::New("First argument must be Buffer.")));
+            return VException("First argument must be Buffer.");
         if (!args[1]->IsInt32())
-            ThrowException(Exception::Error(String::New("Second argument must be integer width.")));
+            return VException("Second argument must be integer width.");
         if (!args[2]->IsInt32())
-            ThrowException(Exception::Error(String::New("Third argument must be integer height.")));
+            return VException("Third argument must be integer height.");
 
         Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
         int w = args[1]->Int32Value();
         int h = args[2]->Int32Value();
 
         if (w < 0)
-            ThrowException(Exception::Error(String::New("Width smaller than 0.")));
+            return VException("Width smaller than 0.");
         if (h < 0)
-            ThrowException(Exception::Error(String::New("Height smaller than 0.")));
+            return VException("Height smaller than 0.");
 
         Png *png = new Png(rgba, w, h);
         png->Wrap(args.This());
@@ -154,6 +179,7 @@ public:
     Initialize(Handle<Object> target)
     {
         HandleScope scope;
+
         Local<FunctionTemplate> t = FunctionTemplate::New(New);
         t->InstanceTemplate()->SetInternalFieldCount(1);
         NODE_SET_PROTOTYPE_METHOD(t, "push", Push);
@@ -161,13 +187,11 @@ public:
         target->Set(String::NewSymbol("FixedPngStack"), t->GetFunction());
     }
 
-    FixedPngStack(int wwidth, int hheight) : ObjectWrap(),
+    FixedPngStack(int wwidth, int hheight) :
         width(wwidth), height(hheight)
     { 
         rgba = (unsigned char *)malloc(sizeof(unsigned char) * width * height * 4);
-        if (!rgba) {
-            ThrowException(Exception::Error(String::New("malloc failed in node-png (FixedPngStack ctor)")));
-        }
+        if (!rgba) throw "malloc failed in node-png (FixedPngStack ctor)";
         memset(rgba, 0xFF, width*height*4);
     }
 
@@ -188,8 +212,10 @@ public:
 
     Handle<Value> PngEncode() {
         HandleScope scope;
+
         PngEncoder p(rgba, width, height);
-        p.encode();
+        Handle<Value> ret = p.encode();
+        if (!ret->IsUndefined()) return ret;
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
 
@@ -200,15 +226,20 @@ protected:
         HandleScope scope;
 
         if (args.Length() != 2)
-            ThrowException(Exception::Error(String::New("Two arguments required - width and height.")));
+            return VException("Two arguments required - width and height.");
         if (!args[0]->IsInt32())
-            ThrowException(Exception::Error(String::New("First argument must be integer width.")));
+            return VException("First argument must be integer width.");
         if (!args[1]->IsInt32())
-            ThrowException(Exception::Error(String::New("Second argument must be integer height.")));
+            return VException("Second argument must be integer height.");
 
-        FixedPngStack *png_stack = new FixedPngStack(args[0]->Int32Value(), args[1]->Int32Value());
-        png_stack->Wrap(args.This());
-        return args.This();
+        try {
+            FixedPngStack *png_stack = new FixedPngStack(args[0]->Int32Value(), args[1]->Int32Value());
+            png_stack->Wrap(args.This());
+            return args.This();
+        }
+        catch (const char *e) {
+            return VException(e);
+        }
     }
 
     static Handle<Value>
@@ -217,15 +248,15 @@ protected:
         HandleScope scope;
 
         if (!Buffer::HasInstance(args[0]))
-            ThrowException(Exception::Error(String::New("First argument must be Buffer.")));
+            return VException("First argument must be Buffer.");
         if (!args[1]->IsInt32())
-            ThrowException(Exception::Error(String::New("Second argument must be integer x.")));
+            return VException("Second argument must be integer x.");
         if (!args[2]->IsInt32())
-            ThrowException(Exception::Error(String::New("Third argument must be integer y.")));
+            return VException("Third argument must be integer y.");
         if (!args[3]->IsInt32())
-            ThrowException(Exception::Error(String::New("Fourth argument must be integer w.")));
+            return VException("Fourth argument must be integer w.");
         if (!args[4]->IsInt32())
-            ThrowException(Exception::Error(String::New("Fifth argument must be integer h.")));
+            return VException("Fifth argument must be integer h.");
 
         FixedPngStack *png_stack = ObjectWrap::Unwrap<FixedPngStack>(args.This());
         Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
@@ -235,21 +266,21 @@ protected:
         int h = args[4]->Int32Value();
 
         if (x < 0)
-            ThrowException(Exception::Error(String::New("Coordinate x smaller than 0.")));
+            return VException("Coordinate x smaller than 0.");
         if (y < 0)
-            ThrowException(Exception::Error(String::New("Coordinate y smaller than 0.")));
+            return VException("Coordinate y smaller than 0.");
         if (w < 0)
-            ThrowException(Exception::Error(String::New("Width smaller than 0.")));
+            return VException("Width smaller than 0.");
         if (h < 0)
-            ThrowException(Exception::Error(String::New("Height smaller than 0.")));
+            return VException("Height smaller than 0.");
         if (x >= png_stack->width) 
-            ThrowException(Exception::Error(String::New("Coordinate x exceeds FixedPngStack's dimensions.")));
+            return VException("Coordinate x exceeds FixedPngStack's dimensions.");
         if (y >= png_stack->height) 
-            ThrowException(Exception::Error(String::New("Coordinate y exceeds FixedPngStack's dimensions.")));
+            return VException("Coordinate y exceeds FixedPngStack's dimensions.");
         if (x+w > png_stack->width) 
-            ThrowException(Exception::Error(String::New("Pushed PNG exceeds FixedPngStack's width.")));
+            return VException("Pushed PNG exceeds FixedPngStack's width.");
         if (y+h > png_stack->height) 
-            ThrowException(Exception::Error(String::New("Pushed PNG exceeds FixedPngStack's height.")));
+            return VException("Pushed PNG exceeds FixedPngStack's height.");
 
         png_stack->Push(rgba, x, y, w, h);
 
@@ -274,9 +305,7 @@ private:
 
         Png(unsigned char *rgba, int len, int x, int y, int w, int h) {
             this->rgba = (unsigned char *)malloc(sizeof(unsigned char)*len);
-            if (!this->rgba) {
-                ThrowException(Exception::Error(String::New("malloc failed in DynamicPngStack::Png::Png")));
-            }
+            if (!this->rgba) throw "malloc failed in DynamicPngStack::Png::Png";
             memcpy(this->rgba, rgba, len);
             this->x = x;
             this->y = y;
@@ -328,6 +357,7 @@ public:
     Initialize(Handle<Object> target)
     {
         HandleScope scope;
+
         Local<FunctionTemplate> t = FunctionTemplate::New(New);
         t->InstanceTemplate()->SetInternalFieldCount(1);
         NODE_SET_PROTOTYPE_METHOD(t, "push", Push);
@@ -336,20 +366,29 @@ public:
         target->Set(String::NewSymbol("DynamicPngStack"), t->GetFunction());
     }
 
-    DynamicPngStack() : ObjectWrap() {}
+    DynamicPngStack() {}
     ~DynamicPngStack() {
         for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
             delete *it;
         }
     }
 
-    void Push(Buffer *buf, int x, int y, int w, int h) {
-        png_stack.push_back(
-            new Png((unsigned char *)buf->data(), buf->length(), x, y, w, h)
-        );
+    Handle<Value>
+    Push(Buffer *buf, int x, int y, int w, int h)
+    {
+        try {
+            Png *png = new Png((unsigned char *)buf->data(), buf->length(), x, y, w, h);
+            png_stack.push_back(png);
+            return Undefined();
+        }
+        catch (const char *e) {
+            return VException(e);
+        }
     }
 
-    Handle<Value> PngEncode() {
+    Handle<Value>
+    PngEncode()
+    {
         HandleScope scope;
 
         std::pair<Point, Point> optimal = OptimalDimension();
@@ -362,9 +401,7 @@ public:
         height = bot.y - top.y;
 
         unsigned char *rgba = (unsigned char*)malloc(sizeof(unsigned char) * width * height * 4);
-        if (!rgba) {
-            ThrowException(Exception::Error(String::New("malloc failed in DynamicPngStack::PngEncode")));
-        }
+        if (!rgba) return VException("malloc failed in DynamicPngStack::PngEncode");
         memset(rgba, 0xFF, width*height*4);
 
         for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
@@ -382,12 +419,15 @@ public:
         }
 
         PngEncoder p(rgba, width, height);
-        p.encode();
+        Handle<Value> ret = p.encode();
         free(rgba);
+        if (!ret->IsUndefined()) return ret;
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
 
-    Handle<Value> Dimensions() {
+    Handle<Value>
+    Dimensions()
+    {
         HandleScope scope;
 
         Local<Object> dim = Object::New();
@@ -415,15 +455,15 @@ protected:
         HandleScope scope;
 
         if (!Buffer::HasInstance(args[0]))
-            ThrowException(Exception::Error(String::New("First argument must be Buffer.")));
+            return VException("First argument must be Buffer.");
         if (!args[1]->IsInt32())
-            ThrowException(Exception::Error(String::New("Second argument must be integer x.")));
+            return VException("Second argument must be integer x.");
         if (!args[2]->IsInt32())
-            ThrowException(Exception::Error(String::New("Third argument must be integer y.")));
+            return VException("Third argument must be integer y.");
         if (!args[3]->IsInt32())
-            ThrowException(Exception::Error(String::New("Fourth argument must be integer w.")));
+            return VException("Fourth argument must be integer w.");
         if (!args[4]->IsInt32())
-            ThrowException(Exception::Error(String::New("Fifth argument must be integer h.")));
+            return VException("Fifth argument must be integer h.");
 
         Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
         int x = args[1]->Int32Value();
@@ -432,18 +472,16 @@ protected:
         int h = args[4]->Int32Value();
 
         if (x < 0)
-            ThrowException(Exception::Error(String::New("Coordinate x smaller than 0.")));
+            return VException("Coordinate x smaller than 0.");
         if (y < 0)
-            ThrowException(Exception::Error(String::New("Coordinate y smaller than 0.")));
+            return VException("Coordinate y smaller than 0.");
         if (w < 0)
-            ThrowException(Exception::Error(String::New("Width smaller than 0.")));
+            return VException("Width smaller than 0.");
         if (h < 0)
-            ThrowException(Exception::Error(String::New("Height smaller than 0.")));
+            return VException("Height smaller than 0.");
 
         DynamicPngStack *png_stack = ObjectWrap::Unwrap<DynamicPngStack>(args.This());
-        png_stack->Push(rgba, x, y, w, h);
-
-        return Undefined();
+        return png_stack->Push(rgba, x, y, w, h);
     }
 
     static Handle<Value>
