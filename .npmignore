@@ -2,5 +2,5 @@ build
 discovery
 experiments
 out
-png-node
+png.node
 .lock-wscript
