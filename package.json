@@ -1,14 +1,14 @@
 {
-   "name": "node-png",
-   "version": "1.0",
-   "description": "A C++ module for node-js that converts an RGBA buffer to a PNG image (in memory).",
+   "name": "png",
+   "version": "1.0.0",
+   "main": "png",
+   "description": "A C++ module for node-js that converts an RGB and RGBA buffers to a PNG images (in memory).",
    "keywords": [
        "png",
+       "rgb",
        "rgba",
        "image",
-       "picture",
-       "node",
-       "nodejs"
+       "picture"
    ],
    "maintainers": [
        {
@@ -20,8 +20,7 @@
    ],
    "licenses": [
        {
-           "type": "GPLv2",
-           "url": "http://www.example.org/licenses/gpl.html" 
+           "type": "MIT"
        } 
    ],
    "repositories": [
@@ -29,14 +28,15 @@
            "type": "git",
            "url": "http://github.com/pkrumins/node-png.git" 
        } 
-   "dependencies": {
-       "libpng": "1.4"
-   },
+   ],
    "directories": {
        "examples": "examples"
    },
    "engines": {
        "node": ">=0.1.93"
+   },
+   "scripts": {
+       "install": "node-waf configure build"
    }
 }
 
