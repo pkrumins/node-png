@@ -3,7 +3,7 @@ var fs = require('fs');
 var sys = require('sys');
 var Buffer = require('buffer').Buffer;
 
-var pngStack = new PngLib.DynamicPngStack();
+var pngStack = new PngLib.DynamicPngStack('rgba');
 
 function rectDim(fileName) {
     var m = fileName.match(/^\d+-rgba-(\d+)-(\d+)-(\d+)-(\d+).dat$/);
