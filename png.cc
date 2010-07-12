@@ -159,7 +159,7 @@ protected:
             if (!args[3]->IsString())
                 return VException("Fourth argument must be 'rgb' or 'rgba'.");
             String::AsciiValue bts(args[3]->ToString());
-            if (!(strcmp(*bts, "rgb") == 0) || strcmp(*bts, "rgba") == 0)
+            if (!(strcmp(*bts, "rgb") == 0 || strcmp(*bts, "rgba") == 0))
                 return VException("Fourth argument must be 'rgb' or 'rgba'.");
             buf_type = (strcmp(*bts, "rgb") == 0) ? BUF_RGB : BUF_RGBA;
         }
@@ -268,7 +268,7 @@ protected:
             if (!args[2]->IsString())
                 return VException("Third argument must be 'rgb' or 'rgba'.");
             String::AsciiValue bts(args[2]->ToString());
-            if (!(strcmp(*bts, "rgb") == 0) || strcmp(*bts, "rgba") == 0)
+            if (!(strcmp(*bts, "rgb") == 0 || strcmp(*bts, "rgba") == 0))
                 return VException("Third argument must be 'rgb' or 'rgba'.");
             buf_type = (strcmp(*bts, "rgb") == 0) ? BUF_RGB : BUF_RGBA;
         }
@@ -507,7 +507,7 @@ protected:
             if (!args[0]->IsString())
                 return VException("First argument must be 'rgb' or 'rgba'.");
             String::AsciiValue bts(args[0]->ToString());
-            if (!(strcmp(*bts, "rgb") == 0) || strcmp(*bts, "rgba") == 0)
+            if (!(strcmp(*bts, "rgb") == 0 || strcmp(*bts, "rgba") == 0))
                 return VException("First argument must be 'rgb' or 'rgba'.");
             buf_type = (strcmp(*bts, "rgb") == 0) ? BUF_RGB : BUF_RGBA;
         }
