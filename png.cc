@@ -5,6 +5,7 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <cassert>
 
 using namespace v8;
 using namespace node;
@@ -15,12 +16,15 @@ VException(const char *msg) {
     return ThrowException(Exception::Error(String::New(msg)));
 }
 
+typedef enum { BUF_RGB, BUF_RGBA } buffer_type;
+
 class PngEncoder {
 private:
     int width, height;
-    unsigned char *rgba_data;
+    unsigned char *data;
     char *png;
     int png_len;
+    buffer_type buf_type; 
 
     std::string encoder_error;
 
@@ -42,8 +46,8 @@ public:
         memcpy(p->png+p->png_len-length, data, length);
     }
 
-    PngEncoder(unsigned char *rgba, int wwidth, int hheight) :
-        rgba_data(rgba), width(wwidth), height(hheight),
+    PngEncoder(unsigned char *ddata, int wwidth, int hheight, buffer_type bbuf_type) :
+        data(ddata), width(wwidth), height(hheight), buf_type(bbuf_type),
         png(NULL), png_len(0) {}
 
     ~PngEncoder() {
@@ -63,8 +67,10 @@ public:
         if (!png_ptr)
             return VException("png_create_info_struct failed.");
 
+        int color_type = (buf_type == BUF_RGB) ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGB_ALPHA;
+
         png_set_IHDR(png_ptr, info_ptr, width, height,
-                 8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
+                 8, color_type, PNG_INTERLACE_NONE,
                  PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
         png_set_write_fn(png_ptr, (void *)this, png_chunk_producer, NULL);
@@ -76,8 +82,9 @@ public:
         if (!row_pointers)
             return VException("malloc failed in node-png (PngEncoder::encode).");
 
+        int row_mul = (buf_type == BUF_RGB) ? 3 : 4;
         for (int i=0; i<height; i++)
-            row_pointers[i] = rgba_data+4*i*width;
+            row_pointers[i] = data+row_mul*i*width;
 
         png_write_image(png_ptr, row_pointers);
         png_write_end(png_ptr, NULL);
@@ -103,7 +110,8 @@ class Png : public ObjectWrap {
 private:
     int width;
     int height;
-    Buffer *rgba;
+    Buffer *data;
+    buffer_type buf_type;
 
 public:
     static void
@@ -117,15 +125,15 @@ public:
         target->Set(String::NewSymbol("Png"), t->GetFunction());
     }
 
-    Png(Buffer *rrgba, int wwidth, int hheight) :
-        rgba(rrgba), width(wwidth), height(hheight) {}
+    Png(Buffer *ddata, int wwidth, int hheight, buffer_type bbuf_type) :
+        data(ddata), width(wwidth), height(hheight), buf_type(bbuf_type) {}
 
     Handle<Value>
     PngEncode()
     {
         HandleScope scope;
 
-        PngEncoder p((unsigned char *)rgba->data(), width, height);
+        PngEncoder p((unsigned char *)data->data(), width, height, buf_type);
         Handle<Value> ret = p.encode();
         if (!ret->IsUndefined()) return ret;
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
@@ -137,8 +145,8 @@ protected:
     {
         HandleScope scope;
 
-        if (args.Length() != 3)
-            return VException("Three arguments required - rgba buffer, width, height.");
+        if (args.Length() < 3)
+            return VException("At least three arguments required - rgba buffer, width, height, [and input buffer type]");
         if (!Buffer::HasInstance(args[0]))
             return VException("First argument must be Buffer.");
         if (!args[1]->IsInt32())
@@ -146,7 +154,17 @@ protected:
         if (!args[2]->IsInt32())
             return VException("Third argument must be integer height.");
 
-        Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
+        buffer_type buf_type = BUF_RGB;
+        if (args.Length() == 4) {
+            if (!args[3]->IsString())
+                return VException("Fourth argument must be 'rgb' or 'rgba'.");
+            String::AsciiValue bts(args[3]->ToString());
+            if (!(strcmp(*bts, "rgb") == 0) || strcmp(*bts, "rgba") == 0)
+                return VException("Fourth argument must be 'rgb' or 'rgba'.");
+            buf_type = (strcmp(*bts, "rgb") == 0) ? BUF_RGB : BUF_RGBA;
+        }
+
+        Buffer *data = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
         int w = args[1]->Int32Value();
         int h = args[2]->Int32Value();
 
@@ -155,7 +173,7 @@ protected:
         if (h < 0)
             return VException("Height smaller than 0.");
 
-        Png *png = new Png(rgba, w, h);
+        Png *png = new Png(data, w, h, buf_type);
         png->Wrap(args.This());
         return args.This();
     }
@@ -172,7 +190,8 @@ protected:
 class FixedPngStack : public ObjectWrap {
 private:
     int width, height;
-    unsigned char *rgba;
+    unsigned char *data;
+    buffer_type buf_type;
 
 public:
     static void
@@ -187,25 +206,37 @@ public:
         target->Set(String::NewSymbol("FixedPngStack"), t->GetFunction());
     }
 
-    FixedPngStack(int wwidth, int hheight) :
-        width(wwidth), height(hheight)
+    FixedPngStack(int wwidth, int hheight, buffer_type bbuf_type) :
+        width(wwidth), height(hheight), buf_type(bbuf_type)
     { 
-        rgba = (unsigned char *)malloc(sizeof(unsigned char) * width * height * 4);
-        if (!rgba) throw "malloc failed in node-png (FixedPngStack ctor)";
-        memset(rgba, 0xFF, width*height*4);
+        data = (unsigned char *)malloc(sizeof(*data) * width * height * 4);
+        if (!data) throw "malloc failed in node-png (FixedPngStack ctor)";
+        memset(data, 0xFF, width*height*4);
     }
 
-    ~FixedPngStack() { free(rgba); }
+    ~FixedPngStack() { free(data); }
 
     void Push(Buffer *buf, int x, int y, int w, int h) {
-        unsigned char *data = (unsigned char *)buf->data();
+        unsigned char *buf_data = (unsigned char *)buf->data();
         int start = y*width*4 + x*4;
-        for (int i = 0; i < h; i++) {
-            for (int j = 0; j < 4*w; j+=4) {
-                rgba[start + i*width*4 + j] = data[i*w*4 + j];
-                rgba[start + i*width*4 + j + 1] = data[i*w*4 + j + 1];
-                rgba[start + i*width*4 + j + 2] = data[i*w*4 + j + 2];
-                rgba[start + i*width*4 + j + 3] = data[i*w*4 + j + 3];
+        if (buf_type == BUF_RGB) {
+            for (int i = 0; i < h; i++) {
+                for (int j = 0, k = 0; k < 3*w; j+=4, k+=3) {
+                    data[start + i*width*4 + j] = buf_data[i*w*3 + k];
+                    data[start + i*width*4 + j + 1] = buf_data[i*w*3 + k + 1];
+                    data[start + i*width*4 + j + 2] = buf_data[i*w*3 + k + 2];
+                    data[start + i*width*4 + j + 3] = 0x00;
+                }
+            }
+        }
+        else {
+            for (int i = 0; i < h; i++) {
+                for (int j = 0; j < 4*w; j+=4) {
+                    data[start + i*width*4 + j] = buf_data[i*w*4 + j];
+                    data[start + i*width*4 + j + 1] = buf_data[i*w*4 + j + 1];
+                    data[start + i*width*4 + j + 2] = buf_data[i*w*4 + j + 2];
+                    data[start + i*width*4 + j + 3] = buf_data[i*w*4 + j + 3];
+                }
             }
         }
     }
@@ -213,7 +244,7 @@ public:
     Handle<Value> PngEncode() {
         HandleScope scope;
 
-        PngEncoder p(rgba, width, height);
+        PngEncoder p(data, width, height, BUF_RGBA);
         Handle<Value> ret = p.encode();
         if (!ret->IsUndefined()) return ret;
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
@@ -225,15 +256,27 @@ protected:
     {
         HandleScope scope;
 
-        if (args.Length() != 2)
-            return VException("Two arguments required - width and height.");
+        if (args.Length() < 2)
+            return VException("At least two arguments required - width and height [and input buffer type].");
         if (!args[0]->IsInt32())
             return VException("First argument must be integer width.");
         if (!args[1]->IsInt32())
             return VException("Second argument must be integer height.");
 
+        buffer_type buf_type = BUF_RGB;
+        if (args.Length() == 3) {
+            if (!args[2]->IsString())
+                return VException("Third argument must be 'rgb' or 'rgba'.");
+            String::AsciiValue bts(args[2]->ToString());
+            if (!(strcmp(*bts, "rgb") == 0) || strcmp(*bts, "rgba") == 0)
+                return VException("Third argument must be 'rgb' or 'rgba'.");
+            buf_type = (strcmp(*bts, "rgb") == 0) ? BUF_RGB : BUF_RGBA;
+        }
+
         try {
-            FixedPngStack *png_stack = new FixedPngStack(args[0]->Int32Value(), args[1]->Int32Value());
+            FixedPngStack *png_stack = new FixedPngStack(
+                args[0]->Int32Value(), args[1]->Int32Value(), buf_type
+            );
             png_stack->Wrap(args.This());
             return args.This();
         }
@@ -259,7 +302,7 @@ protected:
             return VException("Fifth argument must be integer h.");
 
         FixedPngStack *png_stack = ObjectWrap::Unwrap<FixedPngStack>(args.This());
-        Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
+        Buffer *data_buf = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
         int x = args[1]->Int32Value();
         int y = args[2]->Int32Value();
         int w = args[3]->Int32Value();
@@ -282,7 +325,7 @@ protected:
         if (y+h > png_stack->height) 
             return VException("Pushed PNG exceeds FixedPngStack's height.");
 
-        png_stack->Push(rgba, x, y, w, h);
+        png_stack->Push(data_buf, x, y, w, h);
 
         return Undefined();
     }
@@ -300,21 +343,19 @@ protected:
 class DynamicPngStack : public ObjectWrap {
 private:
     struct Png {
-        int x, y, w, h, len;
-        unsigned char *rgba;
+        int len, x, y, w, h;
+        unsigned char *data;
 
-        Png(unsigned char *rgba, int len, int x, int y, int w, int h) {
-            this->rgba = (unsigned char *)malloc(sizeof(unsigned char)*len);
-            if (!this->rgba) throw "malloc failed in DynamicPngStack::Png::Png";
-            memcpy(this->rgba, rgba, len);
-            this->x = x;
-            this->y = y;
-            this->w = w;
-            this->h = h;
+        Png(unsigned char *ddata, int llen, int xx, int yy, int ww, int hh) :
+            len(llen), x(xx), y(yy), w(ww), h(hh)
+        {
+            data = (unsigned char *)malloc(sizeof(*data)*len);
+            if (!data) throw "malloc failed in DynamicPngStack::Png::Png";
+            memcpy(data, ddata, len);
         }
 
         ~Png() {
-            free(rgba);
+            free(data);
         }
     };
 
@@ -329,6 +370,7 @@ private:
     vPng png_stack;
     Point offset;
     int width, height;
+    buffer_type buf_type;
 
     std::pair<Point, Point> OptimalDimension() {
         Point top(-1, -1), bottom(-1, -1);
@@ -366,7 +408,8 @@ public:
         target->Set(String::NewSymbol("DynamicPngStack"), t->GetFunction());
     }
 
-    DynamicPngStack() {}
+    DynamicPngStack(buffer_type bbuf_type) : buf_type(bbuf_type) {}
+
     ~DynamicPngStack() {
         for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
             delete *it;
@@ -400,27 +443,42 @@ public:
         width = bot.x - top.x;
         height = bot.y - top.y;
 
-        unsigned char *rgba = (unsigned char*)malloc(sizeof(unsigned char) * width * height * 4);
-        if (!rgba) return VException("malloc failed in DynamicPngStack::PngEncode");
-        memset(rgba, 0xFF, width*height*4);
+        unsigned char *data = (unsigned char*)malloc(sizeof(*data) * width * height * 4);
+        if (!data) return VException("malloc failed in DynamicPngStack::PngEncode");
+        memset(data, 0xFF, width*height*4);
 
-        for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
-            Png *png = *it;
-            unsigned char *data = png->rgba;
-            int start = (png->y - top.y)*width*4 + (png->x - top.x)*4;
-            for (int i = 0; i < png->h; i++) {
-                for (int j = 0; j < 4*png->w; j+=4) {
-                    rgba[start + i*width*4 + j] = data[i*png->w*4 + j];
-                    rgba[start + i*width*4 + j + 1] = data[i*png->w*4 + j + 1];
-                    rgba[start + i*width*4 + j + 2] = data[i*png->w*4 + j + 2];
-                    rgba[start + i*width*4 + j + 3] = data[i*png->w*4 + j + 3];
+        if (buf_type == BUF_RGB) {
+            for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
+                Png *png = *it;
+                int start = (png->y - top.y)*width*4 + (png->x - top.x)*4;
+                for (int i = 0; i < png->h; i++) {
+                    for (int j = 0, k = 0; k < 3*png->w; j+=4, k+=3) {
+                        data[start + i*width*4 + j] = png->data[i*png->w*3 + k];
+                        data[start + i*width*4 + j + 1] = png->data[i*png->w*3 + k + 1];
+                        data[start + i*width*4 + j + 2] = png->data[i*png->w*3 + k + 2];
+                        data[start + i*width*4 + j + 3] = 0x00;
+                    }
+                }
+            }
+        }
+        else {
+            for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
+                Png *png = *it;
+                int start = (png->y - top.y)*width*4 + (png->x - top.x)*4;
+                for (int i = 0; i < png->h; i++) {
+                    for (int j = 0; j < 4*png->w; j+=4) {
+                        data[start + i*width*4 + j] = png->data[i*png->w*4 + j];
+                        data[start + i*width*4 + j + 1] = png->data[i*png->w*4 + j + 1];
+                        data[start + i*width*4 + j + 2] = png->data[i*png->w*4 + j + 2];
+                        data[start + i*width*4 + j + 3] = png->data[i*png->w*4 + j + 3];
+                    }
                 }
             }
         }
 
-        PngEncoder p(rgba, width, height);
+        PngEncoder p(data, width, height, BUF_RGBA);
         Handle<Value> ret = p.encode();
-        free(rgba);
+        free(data);
         if (!ret->IsUndefined()) return ret;
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
     }
@@ -444,7 +502,17 @@ protected:
     {
         HandleScope scope;
 
-        DynamicPngStack *png_stack = new DynamicPngStack();
+        buffer_type buf_type = BUF_RGB;
+        if (args.Length() == 1) {
+            if (!args[0]->IsString())
+                return VException("First argument must be 'rgb' or 'rgba'.");
+            String::AsciiValue bts(args[0]->ToString());
+            if (!(strcmp(*bts, "rgb") == 0) || strcmp(*bts, "rgba") == 0)
+                return VException("First argument must be 'rgb' or 'rgba'.");
+            buf_type = (strcmp(*bts, "rgb") == 0) ? BUF_RGB : BUF_RGBA;
+        }
+
+        DynamicPngStack *png_stack = new DynamicPngStack(buf_type);
         png_stack->Wrap(args.This());
         return args.This();
     }
@@ -465,7 +533,7 @@ protected:
         if (!args[4]->IsInt32())
             return VException("Fifth argument must be integer h.");
 
-        Buffer *rgba = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
+        Buffer *data = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
         int x = args[1]->Int32Value();
         int y = args[2]->Int32Value();
         int w = args[3]->Int32Value();
@@ -481,7 +549,7 @@ protected:
             return VException("Height smaller than 0.");
 
         DynamicPngStack *png_stack = ObjectWrap::Unwrap<DynamicPngStack>(args.This());
-        return png_stack->Push(rgba, x, y, w, h);
+        return scope.Close(png_stack->Push(data, x, y, w, h));
     }
 
     static Handle<Value>
@@ -490,7 +558,7 @@ protected:
         HandleScope scope;
 
         DynamicPngStack *png_stack = ObjectWrap::Unwrap<DynamicPngStack>(args.This());
-        return png_stack->Dimensions();
+        return scope.Close(png_stack->Dimensions());
     }
 
     static Handle<Value>
@@ -499,7 +567,7 @@ protected:
         HandleScope scope;
 
         DynamicPngStack *png_stack = ObjectWrap::Unwrap<DynamicPngStack>(args.This());
-        return png_stack->PngEncode();
+        return scope.Close(png_stack->PngEncode());
     }
 };
 
