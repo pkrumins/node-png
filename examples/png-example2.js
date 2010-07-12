@@ -15,7 +15,7 @@ var img = x + o + o + o + o +
 var rgba = new Buffer(100);
 rgba.write(img, 'binary');
 
-var png = new Png(rgba, 5, 5);
+var png = new Png(rgba, 5, 5, 'rgba');
 var png_image = png.encode();
 
 fs.writeFileSync('./png-5x5.png', png_image, 'binary');

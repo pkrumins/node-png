@@ -7,7 +7,7 @@ var Buffer = require('buffer').Buffer;
 var rgba = new Buffer(1152000);
 rgba.write(fs.readFileSync('./rgba-terminal.dat', 'binary'), 'binary');
 
-var png = new Png(rgba, 720, 400);
+var png = new Png(rgba, 720, 400, 'rgba');
 var png_image = png.encode();
 
 fs.writeFileSync('./png.png', png_image, 'binary');
