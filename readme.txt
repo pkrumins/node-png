@@ -26,7 +26,7 @@ The `Png` object takes 4 arguments in its constructor:
 The first argument, `buffer`, is a node.js `Buffer` filled with RGB(A) values.
 The second argument is integer width of the image.
 The third argument is integer height of the image.
-The fourth argument is either 'rgb' or 'rgba'. Defaults to 'rgb'
+The fourth argument is 'rgb', 'bgr', 'rgba or 'bgra'. Defaults to 'rgb'.
 
 The constructed `png` object then has an `encode` method that when called,
 converts the RGB(A) values in buffer into a PNG image and returns as a binary
@@ -47,7 +47,7 @@ The `FixedPngStack` object takes 3 arguments in its constructor:
 
 The first argument is integer width of the canvas image.
 The second argument is integer height of the canvas image.
-The third argument is either 'rgb' or 'rgba'. Defaults to 'rgb'.
+The third argument is 'rgb', 'bgr', 'rgba or 'bgra'. Defaults to 'rgb'.
 
 Now you can use the `push` method of `fixed_png` object to push buffers
 to the canvas. The `push` method takes 5 arguments:
@@ -70,7 +70,7 @@ width and height is dynamically computed. To create it, do:
 
     var dynamic_png = new DynamicPngStack(buffer_type);
 
-The `buffer_type` again is either 'rgb' or 'rgba', depending on what type
+The `buffer_type` again is 'rgb', 'bgr', 'rgba' or 'bgra', depending on what type
 of buffers you're gonna push to `dynamic_png`.
 
 It provides three methods - `push`, `encode` and `dimensions`. The `push`
