@@ -16,14 +16,20 @@ VException(const char *msg) {
     return ThrowException(Exception::Error(String::New(msg)));
 }
 
-typedef enum { BUF_RGB, BUF_RGBA } buffer_type;
+static inline bool
+str_eq(const char *s1, const char *s2)
+{
+    return strcmp(s1, s2) == 0;
+}
+
+typedef enum { BUF_RGB, BUF_BGR, BUF_RGBA, BUF_BGRA } buffer_type;
 
 class PngEncoder {
 private:
     int width, height;
     unsigned char *data;
     char *png;
-    int png_len;
+    int png_len, mem_len;
     buffer_type buf_type; 
 
     std::string encoder_error;
@@ -35,20 +41,32 @@ public:
         PngEncoder *p = (PngEncoder *)png_get_io_ptr(png_ptr);
         if (!p->encoder_error.empty()) return;
 
-        p->png_len += length;
-        char *new_png = (char *)realloc(p->png, sizeof(char)*p->png_len);
-        if (!new_png) {
-            free(p->png);
-            p->encoder_error = "realloc failed in node-png (PngEncoder::png_chunk_producer).";
-            return;
+        if (!p->png) {
+            p->png = (char *)malloc(sizeof(p->png)*41);
+            if (!p->png) {
+                p->encoder_error = "malloc failed in node-png (PngEncoder::png_chunk_producer)";
+                return;
+            }
+            p->mem_len = 41;
         }
-        p->png = new_png;
-        memcpy(p->png+p->png_len-length, data, length);
+
+        if (p->png_len + length > p->mem_len) {
+            char *new_png = (char *)realloc(p->png, sizeof(char)*p->png_len + length);
+            if (!new_png) {
+                free(p->png);
+                p->encoder_error = "realloc failed in node-png (PngEncoder::png_chunk_producer).";
+                return;
+            }
+            p->png = new_png;
+            p->mem_len += length;
+        }
+        memcpy(p->png + p->png_len, data, length);
+        p->png_len += length;
     }
 
     PngEncoder(unsigned char *ddata, int wwidth, int hheight, buffer_type bbuf_type) :
         data(ddata), width(wwidth), height(hheight), buf_type(bbuf_type),
-        png(NULL), png_len(0) {}
+        png(NULL), png_len(0), mem_len(0) {}
 
     ~PngEncoder() {
         free(png);
@@ -78,13 +96,21 @@ public:
         png_write_info(png_ptr, info_ptr);
         png_set_invert_alpha(png_ptr);
 
+        if (buf_type == BUF_BGR || buf_type == BUF_BGRA)
+            png_set_bgr(png_ptr);
+
         png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height);
         if (!row_pointers)
             return VException("malloc failed in node-png (PngEncoder::encode).");
 
-        int row_mul = (buf_type == BUF_RGB) ? 3 : 4;
-        for (int i=0; i<height; i++)
-            row_pointers[i] = data+row_mul*i*width;
+        if (buf_type == BUF_RGB || buf_type == BUF_BGR) {
+            for (int i=0; i<height; i++)
+                row_pointers[i] = data+3*i*width;
+        }
+        else {
+            for (int i=0; i<height; i++)
+                row_pointers[i] = data+4*i*width;
+        }
 
         png_write_image(png_ptr, row_pointers);
         png_write_end(png_ptr, NULL);
@@ -97,11 +123,11 @@ public:
         return Undefined();
     }
 
-    char *get_png() {
+    const char *get_png() const {
         return png;
     }
 
-    int get_png_len() {
+    int get_png_len() const {
         return png_len;
     }
 };
@@ -146,7 +172,7 @@ protected:
         HandleScope scope;
 
         if (args.Length() < 3)
-            return VException("At least three arguments required - rgba buffer, width, height, [and input buffer type]");
+            return VException("At least three arguments required - data buffer, width, height, [and input buffer type]");
         if (!Buffer::HasInstance(args[0]))
             return VException("First argument must be Buffer.");
         if (!args[1]->IsInt32())
@@ -157,11 +183,25 @@ protected:
         buffer_type buf_type = BUF_RGB;
         if (args.Length() == 4) {
             if (!args[3]->IsString())
-                return VException("Fourth argument must be 'rgb' or 'rgba'.");
+                return VException("Fourth argument must be 'rgb', 'bgr', 'rgba' or 'bgra'.");
+
             String::AsciiValue bts(args[3]->ToString());
-            if (!(strcmp(*bts, "rgb") == 0 || strcmp(*bts, "rgba") == 0))
-                return VException("Fourth argument must be 'rgb' or 'rgba'.");
-            buf_type = (strcmp(*bts, "rgb") == 0) ? BUF_RGB : BUF_RGBA;
+            if (!(str_eq(*bts, "rgb") || str_eq(*bts, "bgr") ||
+                str_eq(*bts, "rgba") || str_eq(*bts, "bgra")))
+            {
+                return VException("Fourth argument must be 'rgb', 'bgr', 'rgba' or 'bgra'.");
+            }
+            
+            if (str_eq(*bts, "rgb"))
+                buf_type = BUF_RGB;
+            else if (str_eq(*bts, "bgr"))
+                buf_type = BUF_BGR;
+            else if (str_eq(*bts, "rgba"))
+                buf_type = BUF_RGBA;
+            else if (str_eq(*bts, "bgra"))
+                buf_type = BUF_BGRA;
+            else
+                return VException("Fourth argument wasn't 'rgb', 'bgr', 'rgba' or 'bgra'.");
         }
 
         Buffer *data = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
@@ -219,7 +259,7 @@ public:
     void Push(Buffer *buf, int x, int y, int w, int h) {
         unsigned char *buf_data = (unsigned char *)buf->data();
         int start = y*width*4 + x*4;
-        if (buf_type == BUF_RGB) {
+        if (buf_type == BUF_RGB || buf_type == BUF_BGR) {
             for (int i = 0; i < h; i++) {
                 for (int j = 0, k = 0; k < 3*w; j+=4, k+=3) {
                     data[start + i*width*4 + j] = buf_data[i*w*3 + k];
@@ -244,7 +284,11 @@ public:
     Handle<Value> PngEncode() {
         HandleScope scope;
 
-        PngEncoder p(data, width, height, BUF_RGBA);
+        buffer_type pbt = BUF_RGBA;
+        if (buf_type == BUF_BGR || buf_type == BUF_BGRA)
+            pbt = BUF_BGRA;
+
+        PngEncoder p(data, width, height, pbt);
         Handle<Value> ret = p.encode();
         if (!ret->IsUndefined()) return ret;
         return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
@@ -266,11 +310,25 @@ protected:
         buffer_type buf_type = BUF_RGB;
         if (args.Length() == 3) {
             if (!args[2]->IsString())
-                return VException("Third argument must be 'rgb' or 'rgba'.");
+                return VException("Third argument must be 'rgb', 'bgr', 'rgba' or 'bgra'.");
+
             String::AsciiValue bts(args[2]->ToString());
-            if (!(strcmp(*bts, "rgb") == 0 || strcmp(*bts, "rgba") == 0))
-                return VException("Third argument must be 'rgb' or 'rgba'.");
-            buf_type = (strcmp(*bts, "rgb") == 0) ? BUF_RGB : BUF_RGBA;
+            if (!(str_eq(*bts, "rgb") || str_eq(*bts, "bgr") ||
+                str_eq(*bts, "rgba") || str_eq(*bts, "bgra")))
+            {
+                return VException("Third argument must be 'rgb', 'bgr', 'rgba' or 'bgra'.");
+            }
+            
+            if (str_eq(*bts, "rgb"))
+                buf_type = BUF_RGB;
+            else if (str_eq(*bts, "bgr"))
+                buf_type = BUF_BGR;
+            else if (str_eq(*bts, "rgba"))
+                buf_type = BUF_RGBA;
+            else if (str_eq(*bts, "bgra"))
+                buf_type = BUF_BGRA;
+            else
+                return VException("Third argument wasn't 'rgb', 'bgr', 'rgba' or 'bgra'.");
         }
 
         try {
@@ -447,7 +505,7 @@ public:
         if (!data) return VException("malloc failed in DynamicPngStack::PngEncode");
         memset(data, 0xFF, width*height*4);
 
-        if (buf_type == BUF_RGB) {
+        if (buf_type == BUF_RGB || buf_type == BUF_BGR) {
             for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
                 Png *png = *it;
                 int start = (png->y - top.y)*width*4 + (png->x - top.x)*4;
@@ -476,7 +534,11 @@ public:
             }
         }
 
-        PngEncoder p(data, width, height, BUF_RGBA);
+        buffer_type pbt = BUF_RGBA;
+        if (buf_type == BUF_BGR || buf_type == BUF_BGRA)
+            pbt = BUF_BGRA;
+
+        PngEncoder p(data, width, height, pbt);
         Handle<Value> ret = p.encode();
         free(data);
         if (!ret->IsUndefined()) return ret;
@@ -505,11 +567,25 @@ protected:
         buffer_type buf_type = BUF_RGB;
         if (args.Length() == 1) {
             if (!args[0]->IsString())
-                return VException("First argument must be 'rgb' or 'rgba'.");
+                return VException("First argument must be 'rgb', 'bgr', 'rgba' or 'bgra'.");
+
             String::AsciiValue bts(args[0]->ToString());
-            if (!(strcmp(*bts, "rgb") == 0 || strcmp(*bts, "rgba") == 0))
-                return VException("First argument must be 'rgb' or 'rgba'.");
-            buf_type = (strcmp(*bts, "rgb") == 0) ? BUF_RGB : BUF_RGBA;
+            if (!(str_eq(*bts, "rgb") || str_eq(*bts, "bgr") ||
+                str_eq(*bts, "rgba") || str_eq(*bts, "bgra")))
+            {
+                return VException("First argument must be 'rgb', 'bgr', 'rgba' or 'bgra'.");
+            }
+            
+            if (str_eq(*bts, "rgb"))
+                buf_type = BUF_RGB;
+            else if (str_eq(*bts, "bgr"))
+                buf_type = BUF_BGR;
+            else if (str_eq(*bts, "rgba"))
+                buf_type = BUF_RGBA;
+            else if (str_eq(*bts, "bgra"))
+                buf_type = BUF_BGRA;
+            else
+                return VException("First argument wasn't 'rgb', 'bgr', 'rgba' or 'bgra'.");
         }
 
         DynamicPngStack *png_stack = new DynamicPngStack(buf_type);
