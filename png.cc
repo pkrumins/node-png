@@ -85,7 +85,11 @@ public:
         if (!png_ptr)
             return VException("png_create_info_struct failed.");
 
-        int color_type = (buf_type == BUF_RGB) ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGB_ALPHA;
+        int color_type;
+        if (buf_type == BUF_RGB || buf_type == BUF_BGR)
+            color_type = PNG_COLOR_TYPE_RGB;
+        else
+            color_type = PNG_COLOR_TYPE_RGB_ALPHA;
 
         png_set_IHDR(png_ptr, info_ptr, width, height,
                  8, color_type, PNG_INTERLACE_NONE,
