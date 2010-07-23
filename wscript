@@ -17,7 +17,7 @@ def configure(conf):
 def build(bld):
   obj = bld.new_task_gen("cxx", "shlib", "node_addon")
   obj.target = "png"
-  obj.source = "png.cc"
+  obj.source = "src/common.cc src/png_encoder.cc src/nodepng.cc src/fixed_png_stack.cc src/dynamic_png_stack.cc src/module.cc"
   obj.uselib = "PNG"
 
 def shutdown():

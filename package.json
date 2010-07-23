@@ -30,7 +30,8 @@
        } 
    ],
    "directories": {
-       "examples": "examples"
+       "examples": "examples",
+       "src": "src"
    },
    "engines": {
        "node": ">=0.1.93"
