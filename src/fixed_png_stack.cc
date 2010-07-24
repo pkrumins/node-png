@@ -67,10 +67,14 @@ FixedPngStack::PngEncode()
     if (buf_type == BUF_BGR || buf_type == BUF_BGRA)
         pbt = BUF_BGRA;
 
-    PngEncoder p(data, width, height, pbt);
-    Handle<Value> ret = p.encode();
-    if (!ret->IsUndefined()) return ret;
-    return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
+    try {
+        PngEncoder p(data, width, height, pbt);
+        p.encode();
+        return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
+    }
+    catch (const char *err) {
+        return VException(err);
+    }
 }
 
 Handle<Value>

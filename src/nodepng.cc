@@ -24,10 +24,14 @@ Png::PngEncode()
 {
     HandleScope scope;
 
-    PngEncoder p((unsigned char *)data->data(), width, height, buf_type);
-    Handle<Value> ret = p.encode();
-    if (!ret->IsUndefined()) return ret;
-    return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
+    try {
+        PngEncoder p((unsigned char *)data->data(), width, height, buf_type);
+        p.encode();
+        return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
+    }
+    catch (const char *err) {
+        return VException(err);
+    }
 }
 
 Handle<Value>

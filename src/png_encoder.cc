@@ -9,24 +9,18 @@ void
 PngEncoder::png_chunk_producer(png_structp png_ptr, png_bytep data, png_size_t length)
 {
     PngEncoder *p = (PngEncoder *)png_get_io_ptr(png_ptr);
-    if (!p->encoder_error.empty()) return;
 
     if (!p->png) {
-        p->png = (char *)malloc(sizeof(p->png)*41);
-        if (!p->png) {
-            p->encoder_error = "malloc failed in node-png (PngEncoder::png_chunk_producer)";
-            return;
-        }
+        p->png = (char *)malloc(sizeof(p->png)*41); // from tests pngs are at least 41 bytes
+        if (!p->png)
+            throw "malloc failed in node-png (PngEncoder::png_chunk_producer)";
         p->mem_len = 41;
     }
 
     if (p->png_len + length > p->mem_len) {
         char *new_png = (char *)realloc(p->png, sizeof(char)*p->png_len + length);
-        if (!new_png) {
-            free(p->png);
-            p->encoder_error = "realloc failed in node-png (PngEncoder::png_chunk_producer).";
-            return;
-        }
+        if (!new_png)
+            throw "realloc failed in node-png (PngEncoder::png_chunk_producer).";
         p->png = new_png;
         p->mem_len += length;
     }
@@ -42,18 +36,16 @@ PngEncoder::~PngEncoder() {
     free(png);
 }
 
-Handle<Value>
+void
 PngEncoder::encode()
 {
-    HandleScope scope;
-
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png_ptr)
-        return VException("png_create_write_struct failed.");
+        throw "png_create_write_struct failed.";
 
     png_infop info_ptr = png_create_info_struct(png_ptr);
     if (!png_ptr)
-        return VException("png_create_info_struct failed.");
+        throw "png_create_info_struct failed.";
 
     int color_type;
     if (buf_type == BUF_RGB || buf_type == BUF_BGR)
@@ -65,36 +57,39 @@ PngEncoder::encode()
         8, color_type, PNG_INTERLACE_NONE,
         PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
-    png_set_write_fn(png_ptr, (void *)this, png_chunk_producer, NULL);
+    png_bytep *row_pointers = NULL;
 
-    png_write_info(png_ptr, info_ptr);
-    png_set_invert_alpha(png_ptr);
+    try {
+        png_set_write_fn(png_ptr, (void *)this, png_chunk_producer, NULL);
+        png_write_info(png_ptr, info_ptr);
+        png_set_invert_alpha(png_ptr);
 
-    if (buf_type == BUF_BGR || buf_type == BUF_BGRA)
-        png_set_bgr(png_ptr);
+        if (buf_type == BUF_BGR || buf_type == BUF_BGRA)
+            png_set_bgr(png_ptr);
 
-    png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height);
-    if (!row_pointers)
-        return VException("malloc failed in node-png (PngEncoder::encode).");
+        png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height);
+        if (!row_pointers)
+            throw "malloc failed in node-png (PngEncoder::encode).";
 
-    if (buf_type == BUF_RGB || buf_type == BUF_BGR) {
-        for (int i=0; i<height; i++)
-            row_pointers[i] = data+3*i*width;
+        if (buf_type == BUF_RGB || buf_type == BUF_BGR) {
+            for (int i=0; i<height; i++)
+                row_pointers[i] = data+3*i*width;
+        }
+        else {
+            for (int i=0; i<height; i++)
+                row_pointers[i] = data+4*i*width;
+        }
+
+        png_write_image(png_ptr, row_pointers);
+        png_write_end(png_ptr, NULL);
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+        free(row_pointers);
     }
-    else {
-        for (int i=0; i<height; i++)
-            row_pointers[i] = data+4*i*width;
+    catch (const char *err) {
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+        free(row_pointers);
+        throw;
     }
-
-    png_write_image(png_ptr, row_pointers);
-    png_write_end(png_ptr, NULL);
-    png_destroy_write_struct(&png_ptr, &info_ptr);
-    free(row_pointers);
-
-    if (!encoder_error.empty())
-        return VException(encoder_error.c_str());
-
-    return Undefined();
 }
 
 const char *
