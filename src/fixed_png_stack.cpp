@@ -14,7 +14,8 @@ FixedPngStack::Initialize(Handle<Object> target)
     Local<FunctionTemplate> t = FunctionTemplate::New(New);
     t->InstanceTemplate()->SetInternalFieldCount(1);
     NODE_SET_PROTOTYPE_METHOD(t, "push", Push);
-    NODE_SET_PROTOTYPE_METHOD(t, "encode", PngEncode);
+    NODE_SET_PROTOTYPE_METHOD(t, "encode", PngEncodeAsync);
+    NODE_SET_PROTOTYPE_METHOD(t, "encodeSync", PngEncodeSync);
     target->Set(String::NewSymbol("FixedPngStack"), t->GetFunction());
 }
 
@@ -36,36 +37,23 @@ FixedPngStack::Push(Buffer *buf, int x, int y, int w, int h)
 {
     unsigned char *buf_data = (unsigned char *)buf->data();
     int start = y*width*4 + x*4;
-    if (buf_type == BUF_RGB || buf_type == BUF_BGR) {
-        for (int i = 0; i < h; i++) {
-            for (int j = 0, k = 0; k < 3*w; j+=4, k+=3) {
-                data[start + i*width*4 + j] = buf_data[i*w*3 + k];
-                data[start + i*width*4 + j + 1] = buf_data[i*w*3 + k + 1];
-                data[start + i*width*4 + j + 2] = buf_data[i*w*3 + k + 2];
-                data[start + i*width*4 + j + 3] = 0x00;
-            }
-        }
-    }
-    else {
-        for (int i = 0; i < h; i++) {
-            for (int j = 0; j < 4*w; j+=4) {
-                data[start + i*width*4 + j] = buf_data[i*w*4 + j];
-                data[start + i*width*4 + j + 1] = buf_data[i*w*4 + j + 1];
-                data[start + i*width*4 + j + 2] = buf_data[i*w*4 + j + 2];
-                data[start + i*width*4 + j + 3] = buf_data[i*w*4 + j + 3];
-            }
+    for (int i = 0; i < h; i++) {
+        unsigned char *datap = &data[start + i*width*4];
+        for (int j = 0; j < w; j++) {
+            *datap++ = *buf_data++;
+            *datap++ = *buf_data++;
+            *datap++ = *buf_data++;
+            *datap++ = (buf_type == BUF_RGB || buf_type == BUF_BGR) ? 0x00 : *buf_data++;
         }
     }
 }
 
 Handle<Value>
-FixedPngStack::PngEncode()
+FixedPngStack::PngEncodeSync()
 {
     HandleScope scope;
 
-    buffer_type pbt = BUF_RGBA;
-    if (buf_type == BUF_BGR || buf_type == BUF_BGRA)
-        pbt = BUF_BGRA;
+    buffer_type pbt = (buf_type == BUF_BGR || buf_type == BUF_BGRA) ? BUF_BGRA : BUF_RGBA;
 
     try {
         PngEncoder p(data, width, height, pbt);
@@ -113,10 +101,11 @@ FixedPngStack::New(const Arguments &args)
             return VException("Third argument wasn't 'rgb', 'bgr', 'rgba' or 'bgra'.");
     }
 
+    int width = args[0]->Int32Value();
+    int height = args[1]->Int32Value();
+
     try {
-        FixedPngStack *png_stack = new FixedPngStack(
-                args[0]->Int32Value(), args[1]->Int32Value(), buf_type
-                );
+        FixedPngStack *png_stack = new FixedPngStack(width, height, buf_type);
         png_stack->Wrap(args.This());
         return args.This();
     }
@@ -171,11 +160,113 @@ FixedPngStack::Push(const Arguments &args)
 }
 
 Handle<Value>
-FixedPngStack::PngEncode(const Arguments &args)
+FixedPngStack::PngEncodeSync(const Arguments &args)
 {
     HandleScope scope;
 
     FixedPngStack *png_stack = ObjectWrap::Unwrap<FixedPngStack>(args.This());
-    return png_stack->PngEncode();
+    return png_stack->PngEncodeSync();
+}
+
+struct encode_request {
+    Persistent<Function> callback;
+    FixedPngStack *png_obj;
+    char *png;
+    int png_len;
+    char *error;
+};
+
+int
+FixedPngStack::EIO_PngEncode(eio_req *req)
+{
+    encode_request *enc_req = (encode_request *)req->data;
+    FixedPngStack *png = enc_req->png_obj;
+
+    try {
+        PngEncoder p(png->data, png->width, png->height, png->buf_type);
+        p.encode();
+        enc_req->png_len = p.get_png_len();
+        enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
+        if (!enc_req->png) {
+            enc_req->error = strdup("malloc in FixedPngStack::EIO_PngEncode failed.");
+            return 0;
+        }
+        else {
+            memcpy(enc_req->png, p.get_png(), enc_req->png_len);
+        }
+    }
+    catch (const char *err) {
+        enc_req->error = strdup(err);
+    }
+
+    return 0;
+}
+
+int 
+FixedPngStack::EIO_PngEncodeAfter(eio_req *req)
+{
+    HandleScope scope;
+
+    ev_unref(EV_DEFAULT_UC);
+    encode_request *enc_req = (encode_request *)req->data;
+
+    Handle<Value> argv[2];
+
+    if (enc_req->error) {
+        argv[0] = Undefined();
+        argv[1] = ErrorException(enc_req->error);
+    }
+    else {
+        argv[0] = Local<Value>::New(Encode(enc_req->png, enc_req->png_len, BINARY));
+        argv[1] = Undefined();
+    }
+
+    TryCatch try_catch; // don't quite see the necessity of this
+
+    enc_req->callback->Call(Context::GetCurrent()->Global(), 2, argv);
+
+    if (try_catch.HasCaught())
+        FatalException(try_catch);
+
+    enc_req->callback.Dispose();
+    free(enc_req->png);
+    free(enc_req->error);
+
+    enc_req->png_obj->Unref();
+    free(enc_req);
+
+    return 0;
+}
+
+Handle<Value>
+FixedPngStack::PngEncodeAsync(const Arguments &args)
+{
+    HandleScope scope;
+
+    if (args.Length() != 1)
+        return VException("One argument required - callback function.");
+
+    if (!args[0]->IsFunction())
+        return VException("First argument must be a function.");
+
+    Local<Function> callback = Local<Function>::Cast(args[0]);
+    FixedPngStack *png = ObjectWrap::Unwrap<FixedPngStack>(args.This());
+
+    encode_request *enc_req = (encode_request *)malloc(sizeof(*enc_req));
+    if (!enc_req)
+        return VException("malloc in FixedPngStack::PngEncodeAsync failed.");
+
+    enc_req->callback = Persistent<Function>::New(callback);
+    enc_req->png_obj = png;
+    enc_req->png = NULL;
+    enc_req->png_len = 0;
+    enc_req->error = NULL;
+
+    eio_custom(EIO_PngEncode, EIO_PRI_DEFAULT, EIO_PngEncodeAfter, enc_req);
+
+    ev_ref(EV_DEFAULT_UC);
+    png->Ref();
+
+    return Undefined();
 }
 
