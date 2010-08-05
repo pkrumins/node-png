@@ -31,31 +31,17 @@ DynamicPngStack::optimal_dimension()
 void
 DynamicPngStack::construct_png_data(unsigned char *data, Point &top)
 {
-    if (buf_type == BUF_RGB || buf_type == BUF_BGR) {
-        for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
-            Png *png = *it;
-            int start = (png->y - top.y)*width*4 + (png->x - top.x)*4;
-            for (int i = 0; i < png->h; i++) {
-                for (int j = 0, k = 0; k < 3*png->w; j+=4, k+=3) {
-                    data[start + i*width*4 + j] = png->data[i*png->w*3 + k];
-                    data[start + i*width*4 + j + 1] = png->data[i*png->w*3 + k + 1];
-                    data[start + i*width*4 + j + 2] = png->data[i*png->w*3 + k + 2];
-                    data[start + i*width*4 + j + 3] = 0x00;
-                }
-            }
-        }
-    }
-    else {
-        for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
-            Png *png = *it;
-            int start = (png->y - top.y)*width*4 + (png->x - top.x)*4;
-            for (int i = 0; i < png->h; i++) {
-                for (int j = 0; j < 4*png->w; j+=4) {
-                    data[start + i*width*4 + j] = png->data[i*png->w*4 + j];
-                    data[start + i*width*4 + j + 1] = png->data[i*png->w*4 + j + 1];
-                    data[start + i*width*4 + j + 2] = png->data[i*png->w*4 + j + 2];
-                    data[start + i*width*4 + j + 3] = png->data[i*png->w*4 + j + 3];
-                }
+    for (vPngi it = png_stack.begin(); it != png_stack.end(); ++it) {
+        Png *png = *it;
+        int start = (png->y - top.y)*width*4 + (png->x - top.x)*4;
+        unsigned char *pngdatap = png->data;
+        for (int i = 0; i < png->h; i++) {
+            unsigned char *datap = &data[start + i*width*4];
+            for (int j = 0; j < png->w; j++) {
+                *datap++ = *pngdatap++;
+                *datap++ = *pngdatap++;
+                *datap++ = *pngdatap++;
+                *datap++ = (buf_type == BUF_RGB || buf_type == BUF_BGR) ? 0x00 : *pngdatap++;
             }
         }
     }
@@ -77,7 +63,6 @@ DynamicPngStack::Initialize(Handle<Object> target)
 
 DynamicPngStack::DynamicPngStack(buffer_type bbuf_type) :
     buf_type(bbuf_type) {}
-
 
 DynamicPngStack::~DynamicPngStack()
 {
@@ -118,9 +103,7 @@ DynamicPngStack::PngEncodeSync()
 
     construct_png_data(data, top);
 
-    buffer_type pbt = BUF_RGBA;
-    if (buf_type == BUF_BGR || buf_type == BUF_BGRA)
-        pbt = BUF_BGRA;
+    buffer_type pbt = (buf_type == BUF_BGR || buf_type == BUF_BGRA) ? BUF_BGRA : BUF_RGBA;
 
     try {
         PngEncoder p(data, width, height, pbt);
@@ -146,7 +129,6 @@ DynamicPngStack::Dimensions()
 
     return scope.Close(dim);
 }
-
 
 Handle<Value>
 DynamicPngStack::New(const Arguments &args)
@@ -267,9 +249,8 @@ DynamicPngStack::EIO_PngEncode(eio_req *req)
 
     png->construct_png_data(data, top);
 
-    buffer_type pbt = BUF_RGBA;
-    if (png->buf_type == BUF_BGR || png->buf_type == BUF_BGRA)
-        pbt = BUF_BGRA;
+    buffer_type pbt = (png->buf_type == BUF_BGR || png->buf_type == BUF_BGRA) ?
+        BUF_BGRA : BUF_RGBA;
 
     try {
         PngEncoder p(data, png->width, png->height, pbt);
@@ -279,6 +260,7 @@ DynamicPngStack::EIO_PngEncode(eio_req *req)
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
         if (!enc_req->png) {
             enc_req->error = strdup("malloc in DynamicPngStack::EIO_PngEncode failed.");
+            return 0;
         }
         else {
             memcpy(enc_req->png, p.get_png(), enc_req->png_len);
@@ -299,15 +281,17 @@ DynamicPngStack::EIO_PngEncodeAfter(eio_req *req)
     ev_unref(EV_DEFAULT_UC);
     encode_request *enc_req = (encode_request *)req->data;
 
-    Handle<Value> argv[2];
+    Handle<Value> argv[3];
 
     if (enc_req->error) {
         argv[0] = Undefined();
-        argv[1] = ErrorException(enc_req->error);
+        argv[1] = Undefined();
+        argv[2] = ErrorException(enc_req->error);
     }
     else {
         argv[0] = Local<Value>::New(Encode(enc_req->png, enc_req->png_len, BINARY));
-        argv[1] = Undefined();
+        argv[1] = enc_req->png_obj->Dimensions();
+        argv[2] = Undefined();
     }
 
     TryCatch try_catch; // don't quite see the necessity of this

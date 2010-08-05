@@ -3,8 +3,6 @@
 #include "png_encoder.h"
 #include "common.h"
 
-using namespace v8;
-
 void
 PngEncoder::png_chunk_producer(png_structp png_ptr, png_bytep data, png_size_t length)
 {

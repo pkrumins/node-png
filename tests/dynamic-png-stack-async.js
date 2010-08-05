@@ -23,9 +23,8 @@ files.forEach(function(file) {
     pngStack.push(buf, dim.x, dim.y, dim.w, dim.h);
 });
 
-pngStack.encode(function (data, error) {
+pngStack.encode(function (data, dims, error) {
     fs.writeFileSync('dynamic-async.png', data, 'binary');
-    var dims = pngStack.dimensions();
 
     sys.log("PNG located at (" + dims.x + "," + dims.y + ") with width " +
         dims.width + " and height " + dims.height);
