@@ -23,7 +23,7 @@ files.forEach(function(file) {
     pngStack.push(buf, dim.x, dim.y, dim.w, dim.h);
 });
 
-fs.writeFileSync('dynamic.png', pngStack.encode(), 'binary');
+fs.writeFileSync('dynamic.png', pngStack.encodeSync(), 'binary');
 
 var dims = pngStack.dimensions();
 
