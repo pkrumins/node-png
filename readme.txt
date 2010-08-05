@@ -28,14 +28,21 @@ The second argument is integer width of the image.
 The third argument is integer height of the image.
 The fourth argument is 'rgb', 'bgr', 'rgba or 'bgra'. Defaults to 'rgb'.
 
-The constructed `png` object then has an `encode` method that when called,
-converts the RGB(A) values in buffer into a PNG image and returns as a binary
-string:
+The constructed `png` object has the `encode` method that's asynchronous in nature.
+You give it a callback and it will call your function with encoded PNG data when
+it's done:
+
+    png.encode(function (png_image) {
+        // ...
+    });
+
+The constructed `png` object also has `encodeSync` method that does the encoding
+synchronously and returns binary string with PNG image data:
 
     var png_image = png.encode();
 
-You can now either send the png_image to the browser, or write to a file, or
-do something else with it. See `examples/` directory for more examples.
+You can either send the png_image to the browser, or write to a file, or
+do something else with it. See `examples/` directory for some examples.
 
 
 FixedPngStack
@@ -56,8 +63,8 @@ to the canvas. The `push` method takes 5 arguments:
 
 It pushes an RGB(A) image in `buffer` of width `w` and height `h` to the canvas
 position (x, y). You can push as many buffers to canvas as you want. After
-that you should call `encode` method that will join all the pushed RGB(A)
-buffers together and return a single PNG.
+that you should call `encode` method or `encodeSync` method that will join all
+the pushed RGB(A) buffers together and return a single PNG.
 
 All the regions that did not get covered will be transparent.
 
@@ -73,9 +80,14 @@ width and height is dynamically computed. To create it, do:
 The `buffer_type` again is 'rgb', 'bgr', 'rgba' or 'bgra', depending on what type
 of buffers you're gonna push to `dynamic_png`.
 
-It provides three methods - `push`, `encode` and `dimensions`. The `push`
-and `encode` methods are the same as in `FixedPngStack`. You `push` each of
-the RGB(A) buffers to the stack and after that you call `encode`.
+It provides four methods - `push`, `encode`, `encodeSync`, and `dimensions`. The
+`push` and `encode` methods are the same as in `FixedPngStack`. You `push` each
+of the RGB(A) buffers to the stack and after that you call `encode` or
+`encodeSync`.
+
+The `encode` asynchronous method receives one more argument than others - it
+receives the dimensions object with x, y, width and height of the dynamic PNG.
+See the next paragraph for what the dimensions are.
 
 The `dimensions` method is more interesting. It must be called only after
 `encode` as its values are calculated upon encoding the image. It returns an
@@ -97,11 +109,18 @@ Next you push the RGB(A) buffers of the two PNGs to it:
 
 Now you can call `encode` to produce the final PNG:
 
-    var png = dynamic_png.encode();
+    var png = dynamic_png.encodeSync();
 
 Now let's see what the dimensions are,
 
     var dims = dynamic_png.dimensions();
+
+Same asynchronously:
+
+    dynamic_png.encode(function (png, dims) {
+        // png is the PNG image
+        // dims are its dimensions
+    });
 
 The x position `dims.x` is 2 because the 2nd png is closer to the left.
 The y position `dims.y` is 10 because the 1st png is closer to the top.
@@ -125,6 +144,7 @@ to build node-png module. It will be called `png.node`. To use it, make sure
 it's in NODE_PATH.
 
 See also http://github.com/pkrumins/node-jpeg module that produces JPEG images.
+And also http://github.com/pkrumins/node-gif for producing GIF images.
 
 If you wish to stream PNGs over a websocket or xhr-multipart, you'll have to
 base64 encode it. Use my http://github.com/pkrumins/node-base64 module to do
