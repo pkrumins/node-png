@@ -27,5 +27,13 @@ unsigned char *bgr_to_rgb(const unsigned char *rgb, int rgb_size);
 
 typedef enum { BUF_RGB, BUF_BGR, BUF_RGBA, BUF_BGRA } buffer_type;
 
+struct encode_request {
+    v8::Persistent<v8::Function> callback;
+    void *png_obj;
+    char *png;
+    int png_len;
+    char *error;
+};
+
 #endif
 

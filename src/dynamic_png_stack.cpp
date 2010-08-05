@@ -217,19 +217,11 @@ DynamicPngStack::PngEncodeSync(const Arguments &args)
     return scope.Close(png_stack->PngEncodeSync());
 }
 
-struct encode_request {
-    Persistent<Function> callback;
-    DynamicPngStack *png_obj;
-    char *png;
-    int png_len;
-    char *error;
-};
-
 int
 DynamicPngStack::EIO_PngEncode(eio_req *req)
 {
     encode_request *enc_req = (encode_request *)req->data;
-    DynamicPngStack *png = enc_req->png_obj;
+    DynamicPngStack *png = (DynamicPngStack *)enc_req->png_obj;
 
     std::pair<Point, Point> optimal = png->optimal_dimension();
     Point top = optimal.first, bot = optimal.second;
@@ -280,6 +272,7 @@ DynamicPngStack::EIO_PngEncodeAfter(eio_req *req)
 
     ev_unref(EV_DEFAULT_UC);
     encode_request *enc_req = (encode_request *)req->data;
+    DynamicPngStack *png = (DynamicPngStack *)enc_req->png_obj;
 
     Handle<Value> argv[3];
 
@@ -290,7 +283,7 @@ DynamicPngStack::EIO_PngEncodeAfter(eio_req *req)
     }
     else {
         argv[0] = Local<Value>::New(Encode(enc_req->png, enc_req->png_len, BINARY));
-        argv[1] = enc_req->png_obj->Dimensions();
+        argv[1] = png->Dimensions();
         argv[2] = Undefined();
     }
 
@@ -305,7 +298,7 @@ DynamicPngStack::EIO_PngEncodeAfter(eio_req *req)
     free(enc_req->png);
     free(enc_req->error);
 
-    enc_req->png_obj->Unref();
+    png->Unref();
     free(enc_req);
 
     return 0;

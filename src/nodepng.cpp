@@ -97,19 +97,11 @@ Png::PngEncodeSync(const Arguments &args)
     return scope.Close(png->PngEncodeSync());
 }
 
-struct encode_request {
-    Persistent<Function> callback;
-    Png *png_obj;
-    char *png;
-    int png_len;
-    char *error;
-};
-
 int
 Png::EIO_PngEncode(eio_req *req)
 {
     encode_request *enc_req = (encode_request *)req->data;
-    Png *png = enc_req->png_obj;
+    Png *png = (Png *)enc_req->png_obj;
 
     try {
         PngEncoder p((unsigned char *)png->data->data(), png->width, png->height, png->buf_type);
@@ -161,7 +153,7 @@ Png::EIO_PngEncodeAfter(eio_req *req)
     free(enc_req->png);
     free(enc_req->error);
 
-    enc_req->png_obj->Unref();
+    ((Png *)enc_req->png_obj)->Unref();
     free(enc_req);
 
     return 0;

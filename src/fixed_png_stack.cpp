@@ -168,19 +168,11 @@ FixedPngStack::PngEncodeSync(const Arguments &args)
     return png_stack->PngEncodeSync();
 }
 
-struct encode_request {
-    Persistent<Function> callback;
-    FixedPngStack *png_obj;
-    char *png;
-    int png_len;
-    char *error;
-};
-
 int
 FixedPngStack::EIO_PngEncode(eio_req *req)
 {
     encode_request *enc_req = (encode_request *)req->data;
-    FixedPngStack *png = enc_req->png_obj;
+    FixedPngStack *png = (FixedPngStack *)enc_req->png_obj;
 
     try {
         PngEncoder p(png->data, png->width, png->height, png->buf_type);
@@ -232,7 +224,7 @@ FixedPngStack::EIO_PngEncodeAfter(eio_req *req)
     free(enc_req->png);
     free(enc_req->error);
 
-    enc_req->png_obj->Unref();
+    ((FixedPngStack *)enc_req->png_obj)->Unref();
     free(enc_req);
 
     return 0;
