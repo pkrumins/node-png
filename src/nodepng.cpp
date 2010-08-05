@@ -116,7 +116,13 @@ Png::EIO_PngEncode(eio_req *req)
         p.encode();
         enc_req->png_len = p.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
-        memcpy(enc_req->png, p.get_png(), enc_req->png_len);
+        if (!enc_req->png) {
+            enc_req->error = strdup("malloc in Png::EIO_PngEncode failed.");
+            return 0;
+        }
+        else {
+            memcpy(enc_req->png, p.get_png(), enc_req->png_len);
+        }
     }
     catch (const char *err) {
         enc_req->error = strdup(err);
