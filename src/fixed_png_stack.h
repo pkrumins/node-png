@@ -15,7 +15,6 @@ class FixedPngStack : public node::ObjectWrap {
     static int EIO_PngEncodeAfter(eio_req *req);
 
 public:
-
     static void Initialize(v8::Handle<v8::Object> target);
     FixedPngStack(int wwidth, int hheight, buffer_type bbuf_type);
     ~FixedPngStack();
