@@ -112,8 +112,7 @@ Png::EIO_PngEncode(eio_req *req)
     Png *png = enc_req->png_obj;
 
     try {
-        PngEncoder p((unsigned char *)enc_req->png_obj->data->data(),
-            enc_req->png_obj->width, enc_req->png_obj->height, enc_req->png_obj->buf_type);
+        PngEncoder p((unsigned char *)png->data->data(), png->width, png->height, png->buf_type);
         p.encode();
         enc_req->png_len = p.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
@@ -178,7 +177,7 @@ Png::PngEncodeAsync(const Arguments &args)
 
     encode_request *enc_req = (encode_request *)malloc(sizeof(*enc_req));
     if (!enc_req)
-        return VException("malloc in PngEncodeAsync failed.");
+        return VException("malloc in Png::PngEncodeAsync failed.");
 
     enc_req->callback = Persistent<Function>::New(callback);
     enc_req->png_obj = png;
