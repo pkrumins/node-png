@@ -19,6 +19,7 @@ def build(bld):
   obj.target = "png"
   obj.source = "src/common.cpp src/png_encoder.cpp src/nodepng.cpp src/fixed_png_stack.cpp src/dynamic_png_stack.cpp src/module.cpp"
   obj.uselib = "PNG"
+  obj.cxxflags = ["-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE"]
 
 def shutdown():
   if Options.commands['clean']:

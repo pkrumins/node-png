@@ -1,3 +1,5 @@
+#include <cstring>
+#include <cstdlib>
 #include "common.h"
 #include "png_encoder.h"
 #include "nodepng.h"
@@ -12,7 +14,8 @@ Png::Initialize(Handle<Object> target)
 
     Local<FunctionTemplate> t = FunctionTemplate::New(New);
     t->InstanceTemplate()->SetInternalFieldCount(1);
-    NODE_SET_PROTOTYPE_METHOD(t, "encode", PngEncode);
+    NODE_SET_PROTOTYPE_METHOD(t, "encode", PngEncodeAsync);
+    NODE_SET_PROTOTYPE_METHOD(t, "encodeSync", PngEncodeSync);
     target->Set(String::NewSymbol("Png"), t->GetFunction());
 }
 
@@ -20,7 +23,7 @@ Png::Png(Buffer *ddata, int wwidth, int hheight, buffer_type bbuf_type) :
     data(ddata), width(wwidth), height(hheight), buf_type(bbuf_type) {}
 
 Handle<Value>
-Png::PngEncode()
+Png::PngEncodeSync()
 {
     HandleScope scope;
 
@@ -87,10 +90,107 @@ Png::New(const Arguments &args)
 }
 
 Handle<Value>
-Png::PngEncode(const Arguments &args)
+Png::PngEncodeSync(const Arguments &args)
 {
     HandleScope scope;
     Png *png = ObjectWrap::Unwrap<Png>(args.This());
-    return png->PngEncode();
+    return scope.Close(png->PngEncodeSync());
+}
+
+struct encode_request {
+    Persistent<Function> callback;
+    Png *png_obj;
+    char *png;
+    int png_len;
+    char *error;
+};
+
+int
+Png::EIO_PngEncode(eio_req *req)
+{
+    encode_request *enc_req = (encode_request *)req->data;
+    Png *png = enc_req->png_obj;
+
+    try {
+        PngEncoder p((unsigned char *)enc_req->png_obj->data->data(),
+            enc_req->png_obj->width, enc_req->png_obj->height, enc_req->png_obj->buf_type);
+        p.encode();
+        enc_req->png_len = p.get_png_len();
+        enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
+        memcpy(enc_req->png, p.get_png(), enc_req->png_len);
+    }
+    catch (const char *err) {
+        enc_req->error = strdup(err);
+    }
+
+    return 0;
+}
+
+int 
+Png::EIO_PngEncodeAfter(eio_req *req)
+{
+    HandleScope scope;
+
+    ev_unref(EV_DEFAULT_UC);
+    encode_request *enc_req = (encode_request *)req->data;
+
+    Handle<Value> argv[2];
+
+    if (enc_req->error) {
+        argv[0] = Undefined();
+        argv[1] = ErrorException(enc_req->error);
+    }
+    else {
+        argv[0] = Local<Value>::New(Encode(enc_req->png, enc_req->png_len, BINARY));
+        argv[1] = Undefined();
+    }
+
+    TryCatch try_catch; // don't quite see the necessity of this
+
+    enc_req->callback->Call(Context::GetCurrent()->Global(), 2, argv);
+
+    if (try_catch.HasCaught())
+        FatalException(try_catch);
+
+    enc_req->callback.Dispose();
+    free(enc_req->png);
+    free(enc_req->error);
+
+    enc_req->png_obj->Unref();
+    free(enc_req);
+
+    return 0;
+}
+
+Handle<Value>
+Png::PngEncodeAsync(const Arguments &args)
+{
+    HandleScope scope;
+
+    if (args.Length() != 1)
+        return VException("One argument required - callback function.");
+
+    if (!args[0]->IsFunction())
+        return VException("First argument must be a function.");
+
+    Local<Function> callback = Local<Function>::Cast(args[0]);
+    Png *png = ObjectWrap::Unwrap<Png>(args.This());
+
+    encode_request *enc_req = (encode_request *)malloc(sizeof(*enc_req));
+    if (!enc_req)
+        return VException("malloc in PngEncodeAsync failed.");
+
+    enc_req->callback = Persistent<Function>::New(callback);
+    enc_req->png_obj = png;
+    enc_req->png = NULL;
+    enc_req->png_len = 0;
+    enc_req->error = NULL;
+
+    eio_custom(EIO_PngEncode, EIO_PRI_DEFAULT, EIO_PngEncodeAfter, enc_req);
+
+    ev_ref(EV_DEFAULT_UC);
+    png->Ref();
+
+    return Undefined();
 }
 
