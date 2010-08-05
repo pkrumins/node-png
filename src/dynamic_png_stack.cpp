@@ -296,7 +296,7 @@ DynamicPngStack::EIO_PngEncodeAfter(eio_req *req)
 
     TryCatch try_catch; // don't quite see the necessity of this
 
-    enc_req->callback->Call(Context::GetCurrent()->Global(), 2, argv);
+    enc_req->callback->Call(Context::GetCurrent()->Global(), 3, argv);
 
     if (try_catch.HasCaught())
         FatalException(try_catch);
