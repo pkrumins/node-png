@@ -1,6 +1,6 @@
 #include <node.h>
 
-#include "nodepng.h"
+#include "png.h"
 #include "fixed_png_stack.h"
 #include "dynamic_png_stack.h"
 

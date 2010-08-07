@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include "common.h"
 #include "png_encoder.h"
-#include "nodepng.h"
+#include "png.h"
 
 using namespace v8;
 using namespace node;
