@@ -29,15 +29,15 @@ The third argument is integer height of the image.
 The fourth argument is 'rgb', 'bgr', 'rgba or 'bgra'. Defaults to 'rgb'.
 
 The constructed `png` object has the `encode` method that's asynchronous in nature.
-You give it a callback and it will call your function with encoded PNG data when
-it's done:
+You give it a callback and it will call your function with a node.js Buffer object
+containing the encoded PNG data when it's done:
 
     png.encode(function (png_image) {
         // ...
     });
 
 The constructed `png` object also has `encodeSync` method that does the encoding
-synchronously and returns binary string with PNG image data:
+synchronously and returns Buffer with PNG image data:
 
     var png_image = png.encode();
 
@@ -118,7 +118,7 @@ Now let's see what the dimensions are,
 Same asynchronously:
 
     dynamic_png.encode(function (png, dims) {
-        // png is the PNG image
+        // png is the PNG image (in a node.js Buffer)
         // dims are its dimensions
     });
 
