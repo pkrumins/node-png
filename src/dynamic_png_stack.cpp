@@ -106,10 +106,13 @@ DynamicPngStack::PngEncodeSync()
     buffer_type pbt = (buf_type == BUF_BGR || buf_type == BUF_BGRA) ? BUF_BGRA : BUF_RGBA;
 
     try {
-        PngEncoder p(data, width, height, pbt);
-        p.encode();
+        PngEncoder encoder(data, width, height, pbt);
+        encoder.encode();
         free(data);
-        return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
+        int png_len = encoder.get_png_len();
+        Buffer *retbuf = Buffer::New(png_len);
+        memcpy(retbuf->data(), encoder.get_png(), png_len);
+        return scope.Close(retbuf->handle_);
     }
     catch (const char *err) {
         return VException(err);
@@ -245,17 +248,17 @@ DynamicPngStack::EIO_PngEncode(eio_req *req)
         BUF_BGRA : BUF_RGBA;
 
     try {
-        PngEncoder p(data, png->width, png->height, pbt);
-        p.encode();
+        PngEncoder encoder(data, png->width, png->height, pbt);
+        encoder.encode();
         free(data);
-        enc_req->png_len = p.get_png_len();
+        enc_req->png_len = encoder.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
         if (!enc_req->png) {
             enc_req->error = strdup("malloc in DynamicPngStack::EIO_PngEncode failed.");
             return 0;
         }
         else {
-            memcpy(enc_req->png, p.get_png(), enc_req->png_len);
+            memcpy(enc_req->png, encoder.get_png(), enc_req->png_len);
         }
     }
     catch (const char *err) {
@@ -282,7 +285,9 @@ DynamicPngStack::EIO_PngEncodeAfter(eio_req *req)
         argv[2] = ErrorException(enc_req->error);
     }
     else {
-        argv[0] = Local<Value>::New(Encode(enc_req->png, enc_req->png_len, BINARY));
+        Buffer *buf = Buffer::New(enc_req->png_len);
+        memcpy(buf->data(), enc_req->png, enc_req->png_len);
+        argv[0] = buf->handle_;
         argv[1] = png->Dimensions();
         argv[2] = Undefined();
     }
