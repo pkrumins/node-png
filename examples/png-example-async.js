@@ -12,6 +12,6 @@ png.encode(function (data, error) {
         console.log('Error: ' + error.toString());
         process.exit(1);
     }
-    fs.writeFileSync('./png-async.png', data, 'binary');
+    fs.writeFileSync('./png-async.png', data.toString('binary'), 'binary');
 });
 

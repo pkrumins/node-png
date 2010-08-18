@@ -28,9 +28,12 @@ Png::PngEncodeSync()
     HandleScope scope;
 
     try {
-        PngEncoder p((unsigned char *)data->data(), width, height, buf_type);
-        p.encode();
-        return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
+        PngEncoder encoder((unsigned char *)data->data(), width, height, buf_type);
+        encoder.encode();
+        int png_len = encoder.get_png_len();
+        Buffer *retbuf = Buffer::New(png_len);
+        memcpy(retbuf->data(), encoder.get_png(), png_len);
+        return scope.Close(retbuf->handle_);
     }
     catch (const char *err) {
         return VException(err);
@@ -138,7 +141,9 @@ Png::EIO_PngEncodeAfter(eio_req *req)
         argv[1] = ErrorException(enc_req->error);
     }
     else {
-        argv[0] = Local<Value>::New(Encode(enc_req->png, enc_req->png_len, BINARY));
+        Buffer *buf = Buffer::New(enc_req->png_len);
+        memcpy(buf->data(), enc_req->png, enc_req->png_len);
+        argv[0] = buf->handle_;
         argv[1] = Undefined();
     }
 

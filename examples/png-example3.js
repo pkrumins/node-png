@@ -17,5 +17,5 @@ for (var i=0; i<HEIGHT; i++) {
 
 var png = new Png(rgb, WIDTH, HEIGHT, 'rgb');
 
-fs.writeFileSync('./png-gradient.png', png.encodeSync(), 'binary');
+fs.writeFileSync('./png-gradient.png', png.encodeSync().toString('binary'), 'binary');
 

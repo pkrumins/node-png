@@ -1,14 +1,11 @@
 var fs  = require('fs');
 var sys = require('sys');
 var Png = require('../png').Png;
-var Buffer = require('buffer').Buffer;
 
-// the rgba-terminal.dat file is 1152000 bytes long.
-var rgba = new Buffer(1152000);
-rgba.write(fs.readFileSync('./rgba-terminal.dat', 'binary'), 'binary');
+var rgba = fs.readFileSync('./rgba-terminal.dat');
 
 var png = new Png(rgba, 720, 400, 'rgba');
 var png_image = png.encodeSync();
 
-fs.writeFileSync('./png.png', png_image, 'binary');
+fs.writeFileSync('./png.png', png_image.toString('binary'), 'binary');
 
