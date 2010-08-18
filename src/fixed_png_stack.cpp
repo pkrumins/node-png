@@ -56,9 +56,12 @@ FixedPngStack::PngEncodeSync()
     buffer_type pbt = (buf_type == BUF_BGR || buf_type == BUF_BGRA) ? BUF_BGRA : BUF_RGBA;
 
     try {
-        PngEncoder p(data, width, height, pbt);
-        p.encode();
-        return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
+        PngEncoder encoder(data, width, height, pbt);
+        encoder.encode();
+        int png_len = encoder.get_png_len();
+        Buffer *retbuf = Buffer::New(png_len);
+        memcpy(retbuf->data(), encoder.get_png(), png_len);
+        return scope.Close(retbuf->handle_);
     }
     catch (const char *err) {
         return VException(err);
@@ -209,7 +212,9 @@ FixedPngStack::EIO_PngEncodeAfter(eio_req *req)
         argv[1] = ErrorException(enc_req->error);
     }
     else {
-        argv[0] = Local<Value>::New(Encode(enc_req->png, enc_req->png_len, BINARY));
+        Buffer *buf = Buffer::New(enc_req->png_len);
+        memcpy(buf->data(), enc_req->png, enc_req->png_len);
+        argv[0] = buf->handle_;
         argv[1] = Undefined();
     }
 

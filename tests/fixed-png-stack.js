@@ -17,11 +17,9 @@ var files = fs.readdirSync('./push-data');
 
 files.forEach(function(file) {
     var dim = rectDim(file);
-    var rgba = fs.readFileSync('./push-data/' + file, 'binary');
-    var buf = new Buffer(rgba.length);
-    buf.write(rgba, 'binary');
-    pngStack.push(buf, dim.x, dim.y, dim.w, dim.h);
+    var rgba = fs.readFileSync('./push-data/' + file);
+    pngStack.push(rgba, dim.x, dim.y, dim.w, dim.h);
 });
 
-fs.writeFileSync('fixed.png', pngStack.encodeSync(), 'binary');
+fs.writeFileSync('fixed.png', pngStack.encodeSync().toString('binary'), 'binary');
 
