@@ -28,9 +28,12 @@ Png::PngEncodeSync()
     HandleScope scope;
 
     try {
-        PngEncoder p((unsigned char *)data->data(), width, height, buf_type);
-        p.encode();
-        return scope.Close(Encode((char *)p.get_png(), p.get_png_len(), BINARY));
+        PngEncoder encoder((unsigned char *)data->data(), width, height, buf_type);
+        encoder.encode();
+        int png_len = encoder.get_png_len();
+        Buffer *retbuf = Buffer::New(png_len);
+        memcpy(retbuf->data(), encoder.get_png(), png_len);
+        return scope.Close(retbuf->handle_);
     }
     catch (const char *err) {
         return VException(err);
@@ -104,17 +107,11 @@ Png::EIO_PngEncode(eio_req *req)
     Png *png = (Png *)enc_req->png_obj;
 
     try {
-        PngEncoder p((unsigned char *)png->data->data(), png->width, png->height, png->buf_type);
-        p.encode();
-        enc_req->png_len = p.get_png_len();
-        enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
-        if (!enc_req->png) {
-            enc_req->error = strdup("malloc in Png::EIO_PngEncode failed.");
-            return 0;
-        }
-        else {
-            memcpy(enc_req->png, p.get_png(), enc_req->png_len);
-        }
+        PngEncoder encoder((unsigned char *)png->data->data(), png->width, png->height, png->buf_type);
+        encoder.encode();
+        int png_len = encoder.get_png_len();
+        enc_req->png_buf = Buffer::New(png_len);
+        memcpy(enc_req->png_buf->data(), encoder.get_png(), png_len);
     }
     catch (const char *err) {
         enc_req->error = strdup(err);
@@ -138,7 +135,7 @@ Png::EIO_PngEncodeAfter(eio_req *req)
         argv[1] = ErrorException(enc_req->error);
     }
     else {
-        argv[0] = Local<Value>::New(Encode(enc_req->png, enc_req->png_len, BINARY));
+        argv[0] = enc_req->png_buf->handle_;
         argv[1] = Undefined();
     }
 
@@ -150,7 +147,6 @@ Png::EIO_PngEncodeAfter(eio_req *req)
         FatalException(try_catch);
 
     enc_req->callback.Dispose();
-    free(enc_req->png);
     free(enc_req->error);
 
     ((Png *)enc_req->png_obj)->Unref();
@@ -179,8 +175,6 @@ Png::PngEncodeAsync(const Arguments &args)
 
     enc_req->callback = Persistent<Function>::New(callback);
     enc_req->png_obj = png;
-    enc_req->png = NULL;
-    enc_req->png_len = 0;
     enc_req->error = NULL;
 
     eio_custom(EIO_PngEncode, EIO_PRI_DEFAULT, EIO_PngEncodeAfter, enc_req);
