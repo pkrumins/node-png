@@ -2,6 +2,7 @@
 #define COMMON_H
 
 #include <node.h>
+#include <node_buffer.h>
 #include <cstring>
 
 v8::Handle<v8::Value> ErrorException(const char *msg);
@@ -27,8 +28,7 @@ typedef enum { BUF_RGB, BUF_BGR, BUF_RGBA, BUF_BGRA } buffer_type;
 struct encode_request {
     v8::Persistent<v8::Function> callback;
     void *png_obj;
-    char *png;
-    int png_len;
+    node::Buffer *png_buf;
     char *error;
 };
 
