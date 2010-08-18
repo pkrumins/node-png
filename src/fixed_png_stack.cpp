@@ -178,16 +178,16 @@ FixedPngStack::EIO_PngEncode(eio_req *req)
     FixedPngStack *png = (FixedPngStack *)enc_req->png_obj;
 
     try {
-        PngEncoder p(png->data, png->width, png->height, png->buf_type);
-        p.encode();
-        enc_req->png_len = p.get_png_len();
+        PngEncoder encoder(png->data, png->width, png->height, png->buf_type);
+        encoder.encode();
+        enc_req->png_len =encoder.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
         if (!enc_req->png) {
             enc_req->error = strdup("malloc in FixedPngStack::EIO_PngEncode failed.");
             return 0;
         }
         else {
-            memcpy(enc_req->png, p.get_png(), enc_req->png_len);
+            memcpy(enc_req->png,encoder.get_png(), enc_req->png_len);
         }
     }
     catch (const char *err) {
