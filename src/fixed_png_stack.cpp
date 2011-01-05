@@ -2,6 +2,7 @@
 
 #include "png_encoder.h"
 #include "fixed_png_stack.h"
+#include "buffer_compat.h"
 
 using namespace v8;
 using namespace node;
@@ -33,9 +34,8 @@ FixedPngStack::~FixedPngStack()
 }
 
 void
-FixedPngStack::Push(Buffer *buf, int x, int y, int w, int h)
+FixedPngStack::Push(unsigned char *buf_data, int x, int y, int w, int h)
 {
-    unsigned char *buf_data = (unsigned char *)buf->data();
     int start = y*width*4 + x*4;
     for (int i = 0; i < h; i++) {
         unsigned char *datap = &data[start + i*width*4];
@@ -60,7 +60,7 @@ FixedPngStack::PngEncodeSync()
         encoder.encode();
         int png_len = encoder.get_png_len();
         Buffer *retbuf = Buffer::New(png_len);
-        memcpy(retbuf->data(), encoder.get_png(), png_len);
+        memcpy(BufferData(retbuf), encoder.get_png(), png_len);
         return scope.Close(retbuf->handle_);
     }
     catch (const char *err) {
@@ -134,7 +134,6 @@ FixedPngStack::Push(const Arguments &args)
         return VException("Fifth argument must be integer h.");
 
     FixedPngStack *png_stack = ObjectWrap::Unwrap<FixedPngStack>(args.This());
-    Buffer *data_buf = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
     int x = args[1]->Int32Value();
     int y = args[2]->Int32Value();
     int w = args[3]->Int32Value();
@@ -157,7 +156,9 @@ FixedPngStack::Push(const Arguments &args)
     if (y+h > png_stack->height) 
         return VException("Pushed PNG exceeds FixedPngStack's height.");
 
-    png_stack->Push(data_buf, x, y, w, h);
+    char *buf_data = BufferData(args[0]->ToObject());
+
+    png_stack->Push((unsigned char*)buf_data, x, y, w, h);
 
     return Undefined();
 }
@@ -213,7 +214,7 @@ FixedPngStack::EIO_PngEncodeAfter(eio_req *req)
     }
     else {
         Buffer *buf = Buffer::New(enc_req->png_len);
-        memcpy(buf->data(), enc_req->png, enc_req->png_len);
+        memcpy(BufferData(buf), enc_req->png, enc_req->png_len);
         argv[0] = buf->handle_;
         argv[1] = Undefined();
     }

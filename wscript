@@ -17,7 +17,7 @@ def configure(conf):
 def build(bld):
   obj = bld.new_task_gen("cxx", "shlib", "node_addon")
   obj.target = "png"
-  obj.source = "src/common.cpp src/png_encoder.cpp src/png.cpp src/fixed_png_stack.cpp src/dynamic_png_stack.cpp src/module.cpp"
+  obj.source = "src/common.cpp src/png_encoder.cpp src/png.cpp src/fixed_png_stack.cpp src/dynamic_png_stack.cpp src/module.cpp src/buffer_compat.cpp"
   obj.uselib = "PNG"
   obj.cxxflags = ["-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE"]
 

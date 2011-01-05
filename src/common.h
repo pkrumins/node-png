@@ -30,6 +30,7 @@ struct encode_request {
     char *png;
     int png_len;
     char *error;
+    char *buf_data;
 };
 
 #endif

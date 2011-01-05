@@ -3,6 +3,7 @@
 #include "common.h"
 #include "png_encoder.h"
 #include "png.h"
+#include "buffer_compat.h"
 
 using namespace v8;
 using namespace node;
@@ -19,20 +20,24 @@ Png::Initialize(Handle<Object> target)
     target->Set(String::NewSymbol("Png"), t->GetFunction());
 }
 
-Png::Png(Buffer *ddata, int wwidth, int hheight, buffer_type bbuf_type) :
-    data(ddata), width(wwidth), height(hheight), buf_type(bbuf_type) {}
+Png::Png(int wwidth, int hheight, buffer_type bbuf_type) :
+    width(wwidth), height(hheight), buf_type(bbuf_type) {}
 
 Handle<Value>
 Png::PngEncodeSync()
 {
     HandleScope scope;
 
+    Local<Value> buf_val = handle_->GetHiddenValue(String::New("buffer"));
+
+    char *buf_data = BufferData(buf_val->ToObject());
+
     try {
-        PngEncoder encoder((unsigned char *)data->data(), width, height, buf_type);
+        PngEncoder encoder((unsigned char*)buf_data, width, height, buf_type);
         encoder.encode();
         int png_len = encoder.get_png_len();
         Buffer *retbuf = Buffer::New(png_len);
-        memcpy(retbuf->data(), encoder.get_png(), png_len);
+        memcpy(BufferData(retbuf), encoder.get_png(), png_len);
         return scope.Close(retbuf->handle_);
     }
     catch (const char *err) {
@@ -78,7 +83,7 @@ Png::New(const Arguments &args)
             return VException("Fourth argument wasn't 'rgb', 'bgr', 'rgba' or 'bgra'.");
     }
 
-    Buffer *data = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
+
     int w = args[1]->Int32Value();
     int h = args[2]->Int32Value();
 
@@ -87,8 +92,12 @@ Png::New(const Arguments &args)
     if (h < 0)
         return VException("Height smaller than 0.");
 
-    Png *png = new Png(data, w, h, buf_type);
+    Png *png = new Png(w, h, buf_type);
     png->Wrap(args.This());
+
+    // Save buffer.
+    png->handle_->SetHiddenValue(String::New("buffer"), args[0]);
+
     return args.This();
 }
 
@@ -107,7 +116,7 @@ Png::EIO_PngEncode(eio_req *req)
     Png *png = (Png *)enc_req->png_obj;
 
     try {
-        PngEncoder encoder((unsigned char *)png->data->data(), png->width, png->height, png->buf_type);
+        PngEncoder encoder((unsigned char *)enc_req->buf_data, png->width, png->height, png->buf_type);
         encoder.encode();
         enc_req->png_len = encoder.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
@@ -142,7 +151,7 @@ Png::EIO_PngEncodeAfter(eio_req *req)
     }
     else {
         Buffer *buf = Buffer::New(enc_req->png_len);
-        memcpy(buf->data(), enc_req->png, enc_req->png_len);
+        memcpy(BufferData(buf), enc_req->png, enc_req->png_len);
         argv[0] = buf->handle_;
         argv[1] = Undefined();
     }
@@ -187,6 +196,12 @@ Png::PngEncodeAsync(const Arguments &args)
     enc_req->png = NULL;
     enc_req->png_len = 0;
     enc_req->error = NULL;
+
+    // We need to pull out the buffer data before
+    // we go to the thread pool.
+    Local<Value> buf_val = png->handle_->GetHiddenValue(String::New("buffer"));
+
+    enc_req->buf_data = BufferData(buf_val->ToObject());
 
     eio_custom(EIO_PngEncode, EIO_PRI_DEFAULT, EIO_PngEncodeAfter, enc_req);
 

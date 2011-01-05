@@ -19,7 +19,7 @@ public:
     FixedPngStack(int wwidth, int hheight, buffer_type bbuf_type);
     ~FixedPngStack();
 
-    void Push(node::Buffer *buf, int x, int y, int w, int h);
+    void Push(unsigned char *buf_data, int x, int y, int w, int h);
     v8::Handle<v8::Value> PngEncodeSync();
 
     static v8::Handle<v8::Value> New(const v8::Arguments &args);

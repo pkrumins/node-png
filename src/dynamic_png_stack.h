@@ -47,7 +47,7 @@ public:
     DynamicPngStack(buffer_type bbuf_type);
     ~DynamicPngStack();
 
-    v8::Handle<v8::Value> Push(node::Buffer *buf, int x, int y, int w, int h);
+    v8::Handle<v8::Value> Push(unsigned char *buf_data, size_t buf_len, int x, int y, int w, int h);
     v8::Handle<v8::Value> Dimensions();
     v8::Handle<v8::Value> PngEncodeSync();
 

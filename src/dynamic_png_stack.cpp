@@ -1,5 +1,6 @@
 #include "png_encoder.h"
 #include "dynamic_png_stack.h"
+#include "buffer_compat.h"
 
 using namespace v8;
 using namespace node;
@@ -71,10 +72,10 @@ DynamicPngStack::~DynamicPngStack()
 }
 
 Handle<Value>
-DynamicPngStack::Push(Buffer *buf, int x, int y, int w, int h)
+DynamicPngStack::Push(unsigned char *buf_data, size_t buf_len, int x, int y, int w, int h)
 {
     try {
-        Png *png = new Png((unsigned char *)buf->data(), buf->length(), x, y, w, h);
+        Png *png = new Png(buf_data, buf_len, x, y, w, h);
         png_stack.push_back(png);
         return Undefined();
     }
@@ -111,7 +112,7 @@ DynamicPngStack::PngEncodeSync()
         free(data);
         int png_len = encoder.get_png_len();
         Buffer *retbuf = Buffer::New(png_len);
-        memcpy(retbuf->data(), encoder.get_png(), png_len);
+        memcpy(BufferData(retbuf), encoder.get_png(), png_len);
         return scope.Close(retbuf->handle_);
     }
     catch (const char *err) {
@@ -183,7 +184,6 @@ DynamicPngStack::Push(const Arguments &args)
     if (!args[4]->IsInt32())
         return VException("Fifth argument must be integer h.");
 
-    Buffer *data = ObjectWrap::Unwrap<Buffer>(args[0]->ToObject());
     int x = args[1]->Int32Value();
     int y = args[2]->Int32Value();
     int w = args[3]->Int32Value();
@@ -199,7 +199,12 @@ DynamicPngStack::Push(const Arguments &args)
         return VException("Height smaller than 0.");
 
     DynamicPngStack *png_stack = ObjectWrap::Unwrap<DynamicPngStack>(args.This());
-    return scope.Close(png_stack->Push(data, x, y, w, h));
+
+    Local<Object> buf_obj = args[0]->ToObject();
+    char *buf_data = BufferData(buf_obj);
+    size_t buf_len = BufferLength(buf_obj);
+
+    return scope.Close(png_stack->Push((unsigned char*)buf_data, buf_len, x, y, w, h));
 }
 
 Handle<Value>
@@ -286,7 +291,7 @@ DynamicPngStack::EIO_PngEncodeAfter(eio_req *req)
     }
     else {
         Buffer *buf = Buffer::New(enc_req->png_len);
-        memcpy(buf->data(), enc_req->png, enc_req->png_len);
+        memcpy(BufferData(buf), enc_req->png, enc_req->png_len);
         argv[0] = buf->handle_;
         argv[1] = png->Dimensions();
         argv[2] = Undefined();
