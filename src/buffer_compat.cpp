@@ -1,5 +1,6 @@
 #include <node.h>
 #include <node_buffer.h>
+#include <node_version.h>
 #include <v8.h>
 #include "buffer_compat.h"
 
