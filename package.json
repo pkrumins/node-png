@@ -34,7 +34,7 @@
        "src": "src"
    },
    "engines": {
-       "node": ">=0.3.0"
+       "node": ">=0.3.0 <0.5"
    },
    "scripts": {
        "install": "node-waf configure build"
