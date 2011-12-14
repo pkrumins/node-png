@@ -109,7 +109,7 @@ Png::PngEncodeSync(const Arguments &args)
     return scope.Close(png->PngEncodeSync());
 }
 
-int
+void
 Png::EIO_PngEncode(eio_req *req)
 {
     encode_request *enc_req = (encode_request *)req->data;
@@ -122,7 +122,7 @@ Png::EIO_PngEncode(eio_req *req)
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
         if (!enc_req->png) {
             enc_req->error = strdup("malloc in Png::EIO_PngEncode failed.");
-            return 0;
+            return;
         }
         else {
             memcpy(enc_req->png, encoder.get_png(), enc_req->png_len);
@@ -131,8 +131,6 @@ Png::EIO_PngEncode(eio_req *req)
     catch (const char *err) {
         enc_req->error = strdup(err);
     }
-
-    return 0;
 }
 
 int 

@@ -172,7 +172,7 @@ FixedPngStack::PngEncodeSync(const Arguments &args)
     return png_stack->PngEncodeSync();
 }
 
-int
+void
 FixedPngStack::EIO_PngEncode(eio_req *req)
 {
     encode_request *enc_req = (encode_request *)req->data;
@@ -185,7 +185,7 @@ FixedPngStack::EIO_PngEncode(eio_req *req)
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
         if (!enc_req->png) {
             enc_req->error = strdup("malloc in FixedPngStack::EIO_PngEncode failed.");
-            return 0;
+            return;
         }
         else {
             memcpy(enc_req->png,encoder.get_png(), enc_req->png_len);
@@ -194,8 +194,6 @@ FixedPngStack::EIO_PngEncode(eio_req *req)
     catch (const char *err) {
         enc_req->error = strdup(err);
     }
-
-    return 0;
 }
 
 int 
@@ -232,7 +230,7 @@ FixedPngStack::EIO_PngEncodeAfter(eio_req *req)
 
     ((FixedPngStack *)enc_req->png_obj)->Unref();
     free(enc_req);
-
+ 
     return 0;
 }
 
