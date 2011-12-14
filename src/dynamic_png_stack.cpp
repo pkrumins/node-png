@@ -225,7 +225,7 @@ DynamicPngStack::PngEncodeSync(const Arguments &args)
     return scope.Close(png_stack->PngEncodeSync());
 }
 
-int
+void
 DynamicPngStack::EIO_PngEncode(eio_req *req)
 {
     encode_request *enc_req = (encode_request *)req->data;
@@ -243,7 +243,7 @@ DynamicPngStack::EIO_PngEncode(eio_req *req)
     unsigned char *data = (unsigned char*)malloc(sizeof(*data) * png->width * png->height * 4);
     if (!data) {
         enc_req->error = strdup("malloc failed in DynamicPngStack::EIO_PngEncode.");
-        return 0;
+        return;
     }
     memset(data, 0xFF, png->width*png->height*4);
 
@@ -260,7 +260,7 @@ DynamicPngStack::EIO_PngEncode(eio_req *req)
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
         if (!enc_req->png) {
             enc_req->error = strdup("malloc in DynamicPngStack::EIO_PngEncode failed.");
-            return 0;
+            return;
         }
         else {
             memcpy(enc_req->png, encoder.get_png(), enc_req->png_len);
@@ -269,8 +269,6 @@ DynamicPngStack::EIO_PngEncode(eio_req *req)
     catch (const char *err) {
         enc_req->error = strdup(err);
     }
-
-    return 0;
 }
 
 int 

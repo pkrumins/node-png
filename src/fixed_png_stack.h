@@ -11,7 +11,7 @@ class FixedPngStack : public node::ObjectWrap {
     unsigned char *data;
     buffer_type buf_type;
 
-    static int EIO_PngEncode(eio_req *req);
+    static void EIO_PngEncode(eio_req *req);
     static int EIO_PngEncodeAfter(eio_req *req);
 
 public:
