@@ -38,7 +38,7 @@ class DynamicPngStack : public node::ObjectWrap {
 
     std::pair<Point, Point> optimal_dimension();
 
-    static int EIO_PngEncode(eio_req *req);
+    static void EIO_PngEncode(eio_req *req);
     static int EIO_PngEncodeAfter(eio_req *req);
     void construct_png_data(unsigned char *data, Point &top);
 
