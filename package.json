@@ -1,6 +1,6 @@
 {
    "name": "png",
-   "version": "2.1.0",
+   "version": "2.1.1",
    "main":"./build/Release/png",
    "description": "A C++ module for node-js that converts an RGB and RGBA buffers to PNG images (in memory).",
    "keywords": [
@@ -8,27 +8,22 @@
        "rgb",
        "rgba",
        "image",
-       "picture"
+       "picture",
+       "encode"
    ],
-   "maintainers": [
-       {
-           "name": "Peteris Krumins",
-           "email": "peteris.krumins@gmail.com",
-           "web": "http://www.catonmat.net",
-           "twitter": "pkrumins"
-       } 
-   ],
-   "licenses": [
-       {
-           "type": "MIT"
-       } 
-   ],
-   "repositories": [
-       {
-           "type": "git",
-           "url": "http://github.com/pkrumins/node-png.git" 
-       } 
-   ],
+   "author": {
+       "name": "Peteris Krumins",
+       "email": "peteris.krumins@gmail.com",
+       "web": "http://www.catonmat.net",
+       "twitter": "pkrumins"
+   }, 
+   "license": {
+       "type": "MIT"
+   }, 
+   "repository": {
+       "type": "git",
+       "url": "http://github.com/pkrumins/node-png.git" 
+   }, 
    "directories": {
        "examples": "examples",
        "src": "src"
