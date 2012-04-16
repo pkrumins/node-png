@@ -42,7 +42,7 @@ PngEncoder::encode()
         throw "png_create_write_struct failed.";
 
     png_infop info_ptr = png_create_info_struct(png_ptr);
-    if (!png_ptr)
+    if (!info_ptr)
         throw "png_create_info_struct failed.";
 
     int color_type;
