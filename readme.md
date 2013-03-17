@@ -4,11 +4,6 @@ node-png
 This is a node.js module, writen in C++, that uses libpng to produce a PNG
 image (in memory) from RGB or RGBA buffers.
 
-It was written by Peteris Krumins (peter@catonmat.net).
-His blog is at http://www.catonmat.net  --  good coders code, great reuse.
-
-------------------------------------------------------------------------------
-
 The module exports three objects: `Png`, `FixedPngStack` and `DynamicPngStack`.
 
 The `Png` object is for creating PNG images from an RGB or RGBA buffer.
@@ -176,13 +171,4 @@ And also http://github.com/pkrumins/node-gif for producing GIF images.
 If you wish to stream PNGs over a websocket or xhr-multipart, you'll have to
 base64 encode it. Use my http://github.com/pkrumins/node-base64 module to do
 that.
-
-------------------------------------------------------------------------------
-
-Have fun producing PNGs!
-
-
-Sincerely,
-Peteris Krumins
-http://www.catonmat.net
 
