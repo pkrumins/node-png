@@ -62,13 +62,14 @@ Png::New(const Arguments &args)
     buffer_type buf_type = BUF_RGB;
     if (args.Length() == 4) {
         if (!args[3]->IsString())
-            return VException("Fourth argument must be 'rgb', 'bgr', 'rgba' or 'bgra'.");
+            return VException("Fourth argument must be 'gray', 'rgb', 'bgr', 'rgba' or 'bgra'.");
 
         String::AsciiValue bts(args[3]->ToString());
         if (!(str_eq(*bts, "rgb") || str_eq(*bts, "bgr") ||
-            str_eq(*bts, "rgba") || str_eq(*bts, "bgra")))
+            str_eq(*bts, "rgba") || str_eq(*bts, "bgra") ||
+            str_eq(*bts, "gray")))
         {
-            return VException("Fourth argument must be 'rgb', 'bgr', 'rgba' or 'bgra'.");
+            return VException("Fourth argument must be 'gray', 'rgb', 'bgr', 'rgba' or 'bgra'.");
         }
         
         if (str_eq(*bts, "rgb"))
@@ -79,8 +80,10 @@ Png::New(const Arguments &args)
             buf_type = BUF_RGBA;
         else if (str_eq(*bts, "bgra"))
             buf_type = BUF_BGRA;
+        else if (str_eq(*bts, "gray"))
+            buf_type = BUF_GRAY;
         else
-            return VException("Fourth argument wasn't 'rgb', 'bgr', 'rgba' or 'bgra'.");
+            return VException("Fourth argument wasn't 'gray', 'rgb', 'bgr', 'rgba' or 'bgra'.");
     }
 
 

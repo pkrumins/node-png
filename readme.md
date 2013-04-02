@@ -26,7 +26,7 @@ var png = new Png(buffer, width, height, buffer_type);
 The first argument, `buffer`, is a node.js `Buffer` filled with RGB(A) values.
 The second argument is integer width of the image.
 The third argument is integer height of the image.
-The fourth argument is 'rgb', 'bgr', 'rgba or 'bgra'. Defaults to 'rgb'.
+The fourth argument is 'rgb', 'bgr', 'rgba', 'bgra', or 'gray'. Defaults to 'rgb'.
 
 The constructed `png` object has the `encode` method that's asynchronous in nature.
 You give it a callback and it will call your function with a node.js Buffer object
