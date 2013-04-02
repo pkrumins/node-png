@@ -46,10 +46,17 @@ PngEncoder::encode()
         throw "png_create_info_struct failed.";
 
     int color_type;
-    if (buf_type == BUF_RGB || buf_type == BUF_BGR)
+    switch (buf_type) {
+    case BUF_RGB:
+    case BUF_BGR:
         color_type = PNG_COLOR_TYPE_RGB;
-    else
+        break;
+    case BUF_GRAY:
+        color_type = PNG_COLOR_TYPE_GRAY;
+        break;
+    default:
         color_type = PNG_COLOR_TYPE_RGB_ALPHA;
+    }
 
     png_set_IHDR(png_ptr, info_ptr, width, height,
         8, color_type, PNG_INTERLACE_NONE,
@@ -69,11 +76,17 @@ PngEncoder::encode()
         if (!row_pointers)
             throw "malloc failed in node-png (PngEncoder::encode).";
 
-        if (buf_type == BUF_RGB || buf_type == BUF_BGR) {
+        switch (buf_type) {
+        case BUF_RGB:
+        case BUF_BGR:
             for (int i=0; i<height; i++)
                 row_pointers[i] = data+3*i*width;
-        }
-        else {
+            break;
+        case BUF_GRAY:
+            for (int i=0; i<height; i++)
+                row_pointers[i] = data+i*width;
+            break;
+        default:
             for (int i=0; i<height; i++)
                 row_pointers[i] = data+4*i*width;
         }
