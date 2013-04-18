@@ -1,6 +1,6 @@
 {
    "name": "png",
-   "version": "2.1.1",
+   "version": "3.0.0",
    "main":"./build/Release/png",
    "description": "A C++ module for node-js that converts an RGB and RGBA buffers to PNG images (in memory).",
    "keywords": [
