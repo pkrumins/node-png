@@ -173,7 +173,7 @@ FixedPngStack::PngEncodeSync(const Arguments &args)
 }
 
 void
-FixedPngStack::EIO_PngEncode(eio_req *req)
+FixedPngStack::UV_PngEncode(uv_work_t *req)
 {
     encode_request *enc_req = (encode_request *)req->data;
     FixedPngStack *png = (FixedPngStack *)enc_req->png_obj;
@@ -184,7 +184,7 @@ FixedPngStack::EIO_PngEncode(eio_req *req)
         enc_req->png_len =encoder.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
         if (!enc_req->png) {
-            enc_req->error = strdup("malloc in FixedPngStack::EIO_PngEncode failed.");
+            enc_req->error = strdup("malloc in FixedPngStack::UV_PngEncode failed.");
             return;
         }
         else {
@@ -196,13 +196,13 @@ FixedPngStack::EIO_PngEncode(eio_req *req)
     }
 }
 
-int 
-FixedPngStack::EIO_PngEncodeAfter(eio_req *req)
+void 
+FixedPngStack::UV_PngEncodeAfter(uv_work_t *req)
 {
     HandleScope scope;
 
-    ev_unref(EV_DEFAULT_UC);
     encode_request *enc_req = (encode_request *)req->data;
+    delete req;
 
     Handle<Value> argv[2];
 
@@ -230,8 +230,6 @@ FixedPngStack::EIO_PngEncodeAfter(eio_req *req)
 
     ((FixedPngStack *)enc_req->png_obj)->Unref();
     free(enc_req);
- 
-    return 0;
 }
 
 Handle<Value>
@@ -258,9 +256,10 @@ FixedPngStack::PngEncodeAsync(const Arguments &args)
     enc_req->png_len = 0;
     enc_req->error = NULL;
 
-    eio_custom(EIO_PngEncode, EIO_PRI_DEFAULT, EIO_PngEncodeAfter, enc_req);
+    uv_work_t* req = new uv_work_t;
+    req->data = enc_req;
+    uv_queue_work(uv_default_loop(), req, UV_PngEncode, (uv_after_work_cb)UV_PngEncodeAfter);
 
-    ev_ref(EV_DEFAULT_UC);
     png->Ref();
 
     return Undefined();

@@ -11,8 +11,8 @@ class Png : public node::ObjectWrap {
     int height;
     buffer_type buf_type;
 
-    static void EIO_PngEncode(eio_req *req);
-    static int EIO_PngEncodeAfter(eio_req *req);
+    static void UV_PngEncode(uv_work_t *req);
+    static void UV_PngEncodeAfter(uv_work_t *req);
 public:
     static void Initialize(v8::Handle<v8::Object> target);
     Png(int wwidth, int hheight, buffer_type bbuf_type);

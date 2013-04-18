@@ -226,7 +226,7 @@ DynamicPngStack::PngEncodeSync(const Arguments &args)
 }
 
 void
-DynamicPngStack::EIO_PngEncode(eio_req *req)
+DynamicPngStack::UV_PngEncode(uv_work_t *req)
 {
     encode_request *enc_req = (encode_request *)req->data;
     DynamicPngStack *png = (DynamicPngStack *)enc_req->png_obj;
@@ -242,7 +242,7 @@ DynamicPngStack::EIO_PngEncode(eio_req *req)
 
     unsigned char *data = (unsigned char*)malloc(sizeof(*data) * png->width * png->height * 4);
     if (!data) {
-        enc_req->error = strdup("malloc failed in DynamicPngStack::EIO_PngEncode.");
+        enc_req->error = strdup("malloc failed in DynamicPngStack::UV_PngEncode.");
         return;
     }
     memset(data, 0xFF, png->width*png->height*4);
@@ -259,7 +259,7 @@ DynamicPngStack::EIO_PngEncode(eio_req *req)
         enc_req->png_len = encoder.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
         if (!enc_req->png) {
-            enc_req->error = strdup("malloc in DynamicPngStack::EIO_PngEncode failed.");
+            enc_req->error = strdup("malloc in DynamicPngStack::UV_PngEncode failed.");
             return;
         }
         else {
@@ -271,13 +271,14 @@ DynamicPngStack::EIO_PngEncode(eio_req *req)
     }
 }
 
-int 
-DynamicPngStack::EIO_PngEncodeAfter(eio_req *req)
+void 
+DynamicPngStack::UV_PngEncodeAfter(uv_work_t *req)
 {
     HandleScope scope;
 
-    ev_unref(EV_DEFAULT_UC);
     encode_request *enc_req = (encode_request *)req->data;
+    delete req;
+
     DynamicPngStack *png = (DynamicPngStack *)enc_req->png_obj;
 
     Handle<Value> argv[3];
@@ -308,8 +309,6 @@ DynamicPngStack::EIO_PngEncodeAfter(eio_req *req)
 
     png->Unref();
     free(enc_req);
-
-    return 0;
 }
 
 Handle<Value>
@@ -336,9 +335,11 @@ DynamicPngStack::PngEncodeAsync(const Arguments &args)
     enc_req->png_len = 0;
     enc_req->error = NULL;
 
-    eio_custom(EIO_PngEncode, EIO_PRI_DEFAULT, EIO_PngEncodeAfter, enc_req);
 
-    ev_ref(EV_DEFAULT_UC);
+    uv_work_t* req = new uv_work_t;
+    req->data = enc_req;
+    uv_queue_work(uv_default_loop(), req, UV_PngEncode, (uv_after_work_cb)UV_PngEncodeAfter);
+
     png->Ref();
 
     return Undefined();

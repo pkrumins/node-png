@@ -113,7 +113,7 @@ Png::PngEncodeSync(const Arguments &args)
 }
 
 void
-Png::EIO_PngEncode(eio_req *req)
+Png::UV_PngEncode(uv_work_t* req)
 {
     encode_request *enc_req = (encode_request *)req->data;
     Png *png = (Png *)enc_req->png_obj;
@@ -124,7 +124,7 @@ Png::EIO_PngEncode(eio_req *req)
         enc_req->png_len = encoder.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
         if (!enc_req->png) {
-            enc_req->error = strdup("malloc in Png::EIO_PngEncode failed.");
+            enc_req->error = strdup("malloc in Png::UV_PngEncode failed.");
             return;
         }
         else {
@@ -136,13 +136,13 @@ Png::EIO_PngEncode(eio_req *req)
     }
 }
 
-int 
-Png::EIO_PngEncodeAfter(eio_req *req)
+void 
+Png::UV_PngEncodeAfter(uv_work_t *req)
 {
     HandleScope scope;
 
-    ev_unref(EV_DEFAULT_UC);
     encode_request *enc_req = (encode_request *)req->data;
+    delete req;
 
     Handle<Value> argv[2];
 
@@ -170,8 +170,6 @@ Png::EIO_PngEncodeAfter(eio_req *req)
 
     ((Png *)enc_req->png_obj)->Unref();
     free(enc_req);
-
-    return 0;
 }
 
 Handle<Value>
@@ -204,9 +202,11 @@ Png::PngEncodeAsync(const Arguments &args)
 
     enc_req->buf_data = BufferData(buf_val->ToObject());
 
-    eio_custom(EIO_PngEncode, EIO_PRI_DEFAULT, EIO_PngEncodeAfter, enc_req);
 
-    ev_ref(EV_DEFAULT_UC);
+    uv_work_t* req = new uv_work_t;
+    req->data = enc_req;
+    uv_queue_work(uv_default_loop(), req, UV_PngEncode, (uv_after_work_cb)UV_PngEncodeAfter);
+
     png->Ref();
 
     return Undefined();
