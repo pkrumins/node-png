@@ -9,8 +9,8 @@ class PngEncoder {
     int width, height;
     unsigned char *data;
     char *png;
-    int png_len, mem_len;
-    buffer_type buf_type; 
+    unsigned int png_len, mem_len;
+    buffer_type buf_type;
 
 public:
     PngEncoder(unsigned char *ddata, int width, int hheight, buffer_type bbuf_type);
