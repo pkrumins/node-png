@@ -26,9 +26,14 @@ PngEncoder::png_chunk_producer(png_structp png_ptr, png_bytep data, png_size_t l
     p->png_len += length;
 }
 
-PngEncoder::PngEncoder(unsigned char *ddata, int wwidth, int hheight, buffer_type bbuf_type) :
-    data(ddata), width(wwidth), height(hheight), buf_type(bbuf_type),
-    png(NULL), png_len(0), mem_len(0) {}
+PngEncoder::PngEncoder(unsigned char *ddata, int wwidth, int hheight, buffer_type bbuf_type) {
+    data = ddata;
+    width = wwidth;
+    height = hheight;
+    png = NULL;
+    png_len = 0;
+    mem_len = 0;
+}
 
 PngEncoder::~PngEncoder() {
     free(png);
