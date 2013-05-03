@@ -159,7 +159,7 @@ To get the node-png module compiled, you need to have libpng and node.js
 installed. Then just run:
 
 ``` bash
-    node-waf configure build
+    node-gyp configure build
 ```
 
 to build node-png module. It will be called `png.node`. To use it, make sure
