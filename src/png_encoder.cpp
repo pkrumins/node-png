@@ -30,6 +30,7 @@ PngEncoder::PngEncoder(unsigned char *ddata, int wwidth, int hheight, buffer_typ
     data = ddata;
     width = wwidth;
     height = hheight;
+    buf_type = bbuf_type;
     png = NULL;
     png_len = 0;
     mem_len = 0;
