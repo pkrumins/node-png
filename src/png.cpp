@@ -65,13 +65,6 @@ Png::New(const Arguments &args)
             return VException("Fourth argument must be 'gray', 'rgb', 'bgr', 'rgba', 'bgra' or 'bw'.");
 
         String::AsciiValue bts(args[3]->ToString());
-        if (!(str_eq(*bts, "rgb") || str_eq(*bts, "bgr") ||
-            str_eq(*bts, "rgba") || str_eq(*bts, "bgra") ||
-            str_eq(*bts, "gray") || str_eq(*bts, "bw")))
-        {
-            return VException("Fourth argument must be 'gray', 'rgb', 'bgr', 'rgba', 'bgra' or 'bw'.");
-        }
-        
         if (str_eq(*bts, "rgb"))
             buf_type = BUF_RGB;
         else if (str_eq(*bts, "bgr"))
