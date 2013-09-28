@@ -22,7 +22,7 @@ struct Rect {
 
 bool str_eq(const char *s1, const char *s2);
 
-typedef enum { BUF_RGB, BUF_BGR, BUF_RGBA, BUF_BGRA, BUF_GRAY } buffer_type;
+typedef enum { BUF_RGB, BUF_BGR, BUF_RGBA, BUF_BGRA, BUF_GRAY, BUF_BW } buffer_type;
 
 struct encode_request {
     v8::Persistent<v8::Function> callback;

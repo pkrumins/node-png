@@ -60,13 +60,33 @@ PngEncoder::encode()
     case BUF_GRAY:
         color_type = PNG_COLOR_TYPE_GRAY;
         break;
+    case BUF_BW:
+        color_type = PNG_COLOR_TYPE_PALETTE;
+        break;
     default:
         color_type = PNG_COLOR_TYPE_RGB_ALPHA;
     }
 
-    png_set_IHDR(png_ptr, info_ptr, width, height,
-        8, color_type, PNG_INTERLACE_NONE,
-        PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+    png_color png_palette[2];
+    if (buf_type == BUF_BW) {
+        png_set_IHDR(png_ptr, info_ptr, width, height,
+            1, color_type, PNG_INTERLACE_NONE,
+            PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+        png_palette[0].red = 0x0;
+        png_palette[0].green = 0x0;
+        png_palette[0].blue = 0x0;
+        png_palette[1].red = 0xFF;
+        png_palette[1].green = 0xFF;
+        png_palette[1].blue = 0xFF;
+
+        png_set_PLTE(png_ptr, info_ptr, png_palette, 2);
+    }
+    else {
+        png_set_IHDR(png_ptr, info_ptr, width, height,
+            8, color_type, PNG_INTERLACE_NONE,
+            PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+    }
+
 
     png_bytep *row_pointers = NULL;
 
@@ -91,6 +111,13 @@ PngEncoder::encode()
         case BUF_GRAY:
             for (int i=0; i<height; i++)
                 row_pointers[i] = data+i*width;
+            break;
+        case BUF_BW: {
+                int bytes_in_row = (width + (8 - 1)) / 8; // Round up
+
+                for (int i=0; i<height; ++i)
+                    row_pointers[i] = data+i*bytes_in_row;
+            }
             break;
         default:
             for (int i=0; i<height; i++)
