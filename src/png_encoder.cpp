@@ -26,11 +26,13 @@ PngEncoder::png_chunk_producer(png_structp png_ptr, png_bytep data, png_size_t l
     p->png_len += length;
 }
 
-PngEncoder::PngEncoder(unsigned char *ddata, int wwidth, int hheight, buffer_type bbuf_type) {
+PngEncoder::PngEncoder(unsigned char *ddata, int wwidth, int hheight,
+                       buffer_type bbuf_type, int bbits) {
     data = ddata;
     width = wwidth;
     height = hheight;
     buf_type = bbuf_type;
+    bits = bbits;
     png = NULL;
     png_len = 0;
     mem_len = 0;
@@ -65,7 +67,7 @@ PngEncoder::encode()
     }
 
     png_set_IHDR(png_ptr, info_ptr, width, height,
-        8, color_type, PNG_INTERLACE_NONE,
+        bits, color_type, PNG_INTERLACE_NONE,
         PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
     png_bytep *row_pointers = NULL;
@@ -90,7 +92,7 @@ PngEncoder::encode()
             break;
         case BUF_GRAY:
             for (int i=0; i<height; i++)
-                row_pointers[i] = data+i*width;
+                row_pointers[i] = data+(bits/8)*i*width;
             break;
         default:
             for (int i=0; i<height; i++)

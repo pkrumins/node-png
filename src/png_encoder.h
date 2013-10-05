@@ -6,14 +6,14 @@
 #include "common.h"
 
 class PngEncoder {
-    int width, height;
+    int width, height, bits;
     unsigned char *data;
     char *png;
     unsigned int png_len, mem_len;
     buffer_type buf_type;
 
 public:
-    PngEncoder(unsigned char *ddata, int width, int hheight, buffer_type bbuf_type);
+    PngEncoder(unsigned char *ddata, int width, int hheight, buffer_type bbuf_type, int bbits);
     ~PngEncoder();
 
     static void png_chunk_producer(png_structp png_ptr, png_bytep data, png_size_t length);
