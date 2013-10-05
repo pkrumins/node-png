@@ -56,7 +56,7 @@ FixedPngStack::PngEncodeSync()
     buffer_type pbt = (buf_type == BUF_BGR || buf_type == BUF_BGRA) ? BUF_BGRA : BUF_RGBA;
 
     try {
-        PngEncoder encoder(data, width, height, pbt);
+        PngEncoder encoder(data, width, height, pbt, 8);
         encoder.encode();
         int png_len = encoder.get_png_len();
         Buffer *retbuf = Buffer::New(png_len);
@@ -179,7 +179,7 @@ FixedPngStack::UV_PngEncode(uv_work_t *req)
     FixedPngStack *png = (FixedPngStack *)enc_req->png_obj;
 
     try {
-        PngEncoder encoder(png->data, png->width, png->height, png->buf_type);
+        PngEncoder encoder(png->data, png->width, png->height, png->buf_type, 8);
         encoder.encode();
         enc_req->png_len =encoder.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);

@@ -107,7 +107,7 @@ DynamicPngStack::PngEncodeSync()
     buffer_type pbt = (buf_type == BUF_BGR || buf_type == BUF_BGRA) ? BUF_BGRA : BUF_RGBA;
 
     try {
-        PngEncoder encoder(data, width, height, pbt);
+        PngEncoder encoder(data, width, height, pbt, 8);
         encoder.encode();
         free(data);
         int png_len = encoder.get_png_len();
@@ -253,7 +253,7 @@ DynamicPngStack::UV_PngEncode(uv_work_t *req)
         BUF_BGRA : BUF_RGBA;
 
     try {
-        PngEncoder encoder(data, png->width, png->height, pbt);
+        PngEncoder encoder(data, png->width, png->height, pbt, 8);
         encoder.encode();
         free(data);
         enc_req->png_len = encoder.get_png_len();

@@ -20,8 +20,8 @@ Png::Initialize(Handle<Object> target)
     target->Set(String::NewSymbol("Png"), t->GetFunction());
 }
 
-Png::Png(int wwidth, int hheight, buffer_type bbuf_type) :
-    width(wwidth), height(hheight), buf_type(bbuf_type) {}
+Png::Png(int wwidth, int hheight, buffer_type bbuf_type, int bbits) :
+    width(wwidth), height(hheight), buf_type(bbuf_type), bits(bbits) {}
 
 Handle<Value>
 Png::PngEncodeSync()
@@ -33,7 +33,7 @@ Png::PngEncodeSync()
     char *buf_data = BufferData(buf_val->ToObject());
 
     try {
-        PngEncoder encoder((unsigned char*)buf_data, width, height, buf_type);
+        PngEncoder encoder((unsigned char*)buf_data, width, height, buf_type, bits);
         encoder.encode();
         int png_len = encoder.get_png_len();
         Buffer *retbuf = Buffer::New(png_len);
@@ -60,7 +60,7 @@ Png::New(const Arguments &args)
         return VException("Third argument must be integer height.");
 
     buffer_type buf_type = BUF_RGB;
-    if (args.Length() == 4) {
+    if (args.Length() >= 4) {
         if (!args[3]->IsString())
             return VException("Fourth argument must be 'gray', 'rgb', 'bgr', 'rgba' or 'bgra'.");
 
@@ -86,16 +86,32 @@ Png::New(const Arguments &args)
             return VException("Fourth argument wasn't 'gray', 'rgb', 'bgr', 'rgba' or 'bgra'.");
     }
 
+    int bits = 8;
+
+    if (args.Length() >= 5) {
+        if(buf_type != BUF_GRAY)
+            return VException("Pixel bit width option only valid for \"gray\" buffer type");
+        if(!args[4]->IsInt32())
+            return VException("Fifth argument must be 8 or 16");
+
+        if(args[4]->Int32Value() == 8)
+            bits = 8;
+        else if (args[4]->Int32Value() == 16)
+            bits = 16;
+        else
+            return VException("Fifth arguments wasn't 8 or 16");
+    }
 
     int w = args[1]->Int32Value();
     int h = args[2]->Int32Value();
+
 
     if (w < 0)
         return VException("Width smaller than 0.");
     if (h < 0)
         return VException("Height smaller than 0.");
 
-    Png *png = new Png(w, h, buf_type);
+    Png *png = new Png(w, h, buf_type, bits);
     png->Wrap(args.This());
 
     // Save buffer.
@@ -119,7 +135,7 @@ Png::UV_PngEncode(uv_work_t* req)
     Png *png = (Png *)enc_req->png_obj;
 
     try {
-        PngEncoder encoder((unsigned char *)enc_req->buf_data, png->width, png->height, png->buf_type);
+        PngEncoder encoder((unsigned char *)enc_req->buf_data, png->width, png->height, png->buf_type, png->bits);
         encoder.encode();
         enc_req->png_len = encoder.get_png_len();
         enc_req->png = (char *)malloc(sizeof(*enc_req->png)*enc_req->png_len);
