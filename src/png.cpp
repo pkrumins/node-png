@@ -227,5 +227,3 @@ Png::PngEncodeAsync(const Arguments &args)
 
     return Undefined();
 }
-
-NODE_MODULE(png, Png::Initialize)
