@@ -75,7 +75,6 @@ PngEncoder::encode()
     try {
         png_set_write_fn(png_ptr, (void *)this, png_chunk_producer, NULL);
         png_write_info(png_ptr, info_ptr);
-        png_set_invert_alpha(png_ptr);
 
         if (buf_type == BUF_BGR || buf_type == BUF_BGRA)
             png_set_bgr(png_ptr);
