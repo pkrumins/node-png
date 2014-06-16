@@ -40,7 +40,14 @@
                             '<(module_root_dir)/gyp/lib/zlib.lib'
                         ]
                     }
-                ]
+                ],
+                [
+                    'OS=="freebsd"', {
+                        "include_dirs" : [ "/usr/local/include/libpng15" ],
+                        'cflags!': [ '-fno-exceptions' ],
+                        'cflags_cc!': [ '-fno-exceptions' ]                        
+                    }
+                ]                
             ]
         }
     ]
