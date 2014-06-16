@@ -45,7 +45,10 @@
                     'OS=="freebsd"', {
                         "include_dirs" : [ "/usr/local/include/libpng15" ],
                         'cflags!': [ '-fno-exceptions' ],
-                        'cflags_cc!': [ '-fno-exceptions' ]                        
+                        'cflags_cc!': [ '-fno-exceptions' ],
+                        "libraries" : [
+                            '<!@(pkg-config libpng --libs)'
+                        ]                        
                     }
                 ]                
             ]
