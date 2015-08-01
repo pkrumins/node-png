@@ -5,16 +5,17 @@
 using namespace v8;
 
 Handle<Value>
-ErrorException(const char *msg)
+ErrorException(Isolate *isolate, const char *msg)
 {
-    HandleScope scope;
-    return Exception::Error(String::New(msg));
+    HandleScope scope(isolate);
+    return Exception::Error(String::NewFromUtf8(isolate, msg));
 }
 
 Handle<Value>
-VException(const char *msg) {
-    HandleScope scope;
-    return ThrowException(ErrorException(msg));
+VException(Isolate *isolate, const char *msg)
+{
+    HandleScope scope(isolate);
+    return isolate->ThrowException(ErrorException(isolate, msg));
 }
 
 bool str_eq(const char *s1, const char *s2)

@@ -4,8 +4,8 @@
 #include <node.h>
 #include <cstring>
 
-v8::Handle<v8::Value> ErrorException(const char *msg);
-v8::Handle<v8::Value> VException(const char *msg);
+v8::Handle<v8::Value> ErrorException(v8::Isolate *isolate, const char *msg);
+v8::Handle<v8::Value> VException(v8::Isolate *isolate, const char *msg);
 
 struct Point {
     int x, y;
@@ -25,6 +25,10 @@ bool str_eq(const char *s1, const char *s2);
 typedef enum { BUF_RGB, BUF_BGR, BUF_RGBA, BUF_BGRA, BUF_GRAY } buffer_type;
 
 struct encode_request {
+    encode_request(v8::Isolate *isolate, const v8::Handle<v8::Function> &callback)
+        : isolate(isolate), callback(isolate, callback) { }
+    
+    v8::Isolate *isolate;
     v8::Persistent<v8::Function> callback;
     void *png_obj;
     char *png;
